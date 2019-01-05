@@ -1,5 +1,4 @@
 package vnm.web.action.program;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -27,9 +26,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Random;
 
-import net.sf.jxls.exception.ParsePropertyException;
-import net.sf.jxls.transformer.XLSTransformer;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.POIXMLDocument;
 import org.apache.poi.hssf.usermodel.HSSFDateUtil;
@@ -50,25 +46,14 @@ import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.struts2.ServletActionContext;
 
-import vnm.web.action.general.AbstractAction;
-import vnm.web.bean.CellBean;
-import vnm.web.bean.TreeGridNode;
-import vnm.web.constant.ConstantManager;
-import vnm.web.enumtype.FileExtension;
-import vnm.web.helper.Configuration;
-import vnm.web.helper.R;
-import vnm.web.utils.DateUtil;
-import vnm.web.utils.LogUtility;
-import vnm.web.utils.StringUtil;
-import vnm.web.utils.ValidateUtil;
-import vnm.web.utils.report.excel.ExcelPOIProcessUtils;
-import vnm.web.utils.report.excel.SXSSFReportHelper;
-
 import com.viettel.core.business.PromotionProgramMgr;
 import com.viettel.core.common.utils.Constant;
+import com.viettel.core.dao.CommonDAO;
 import com.viettel.core.entities.ApParam;
 import com.viettel.core.entities.Customer;
 import com.viettel.core.entities.CustomerAttribute;
+import com.viettel.core.entities.Game;
+import com.viettel.core.entities.GamePromotionProgram;
 import com.viettel.core.entities.GroupLevel;
 import com.viettel.core.entities.GroupMapping;
 import com.viettel.core.entities.Product;
@@ -100,6 +85,7 @@ import com.viettel.core.entities.enumtype.ShopFilter;
 import com.viettel.core.entities.enumtype.ShopSpecificType;
 import com.viettel.core.entities.enumtype.StaffSpecificType;
 import com.viettel.core.entities.filter.BasicFilter;
+import com.viettel.core.entities.filter.GameFilter;
 import com.viettel.core.entities.filter.PromotionCustomerFilter;
 import com.viettel.core.entities.filter.PromotionStaffFilter;
 import com.viettel.core.entities.vo.CatalogVO;
@@ -108,6 +94,7 @@ import com.viettel.core.entities.vo.ExMapping;
 import com.viettel.core.entities.vo.ExcelPromotionDetail;
 import com.viettel.core.entities.vo.ExcelPromotionHeader;
 import com.viettel.core.entities.vo.ExcelPromotionUnit;
+import com.viettel.core.entities.vo.GameVO;
 import com.viettel.core.entities.vo.GroupKM;
 import com.viettel.core.entities.vo.GroupLevelVO;
 import com.viettel.core.entities.vo.GroupMua;
@@ -130,16 +117,9 @@ import com.viettel.core.entities.vo.PromotionCustAttrVO;
 import com.viettel.core.entities.vo.PromotionCustomerVO;
 import com.viettel.core.entities.vo.PromotionImportGroupLevelDetailNewVO;
 import com.viettel.core.entities.vo.PromotionImportGroupLevelNewVO;
-import com.viettel.core.entities.vo.PromotionImportGroupLevelProductVO;
-import com.viettel.core.entities.vo.PromotionImportGroupLevelVO;
-import com.viettel.core.entities.vo.PromotionImportGroupVO;
 import com.viettel.core.entities.vo.PromotionImportNewVO;
 import com.viettel.core.entities.vo.PromotionImportProductGroupNewVO;
 import com.viettel.core.entities.vo.PromotionImportShopNewVO;
-import com.viettel.core.entities.vo.PromotionImportShopVO;
-import com.viettel.core.entities.vo.PromotionImportSubGroupLevelProductDetailVO;
-import com.viettel.core.entities.vo.PromotionImportSubGroupLevelProductVO;
-import com.viettel.core.entities.vo.PromotionImportVO;
 import com.viettel.core.entities.vo.PromotionNewcusConfigVO;
 import com.viettel.core.entities.vo.PromotionProductOpenVO;
 import com.viettel.core.entities.vo.PromotionShopMapVO;
@@ -153,16 +133,24 @@ import com.viettel.core.exceptions.BusinessException;
 import com.viettel.core.exceptions.DataAccessException;
 import com.viettel.core.memcached.MemcachedUtils;
 
+import net.sf.jxls.exception.ParsePropertyException;
+import net.sf.jxls.transformer.XLSTransformer;
+import vnm.web.action.general.AbstractAction;
+import vnm.web.bean.CellBean;
+import vnm.web.bean.TreeGridNode;
+import vnm.web.constant.ConstantManager;
+import vnm.web.enumtype.FileExtension;
+import vnm.web.helper.Configuration;
+import vnm.web.helper.R;
+import vnm.web.utils.DateUtil;
+import vnm.web.utils.LogUtility;
+import vnm.web.utils.StringUtil;
+import vnm.web.utils.ValidateUtil;
+import vnm.web.utils.report.excel.ExcelPOIProcessUtils;
+import vnm.web.utils.report.excel.SXSSFReportHelper;
+
 public class PromotionCatalogAction extends AbstractAction {
 
-	private final List<String> PROMOTION_TYPES = Arrays.asList(PromotionType.ZV01.getValue(), PromotionType.ZV02.getValue(), PromotionType.ZV03.getValue(), PromotionType.ZV04.getValue()
-			, PromotionType.ZV05.getValue(), PromotionType.ZV06.getValue(), PromotionType.ZV07.getValue(), PromotionType.ZV08.getValue(), PromotionType.ZV09.getValue()
-			, PromotionType.ZV10.getValue(), PromotionType.ZV11.getValue(), PromotionType.ZV12.getValue(), PromotionType.ZV13.getValue(), PromotionType.ZV14.getValue()
-			, PromotionType.ZV15.getValue(), PromotionType.ZV16.getValue(), PromotionType.ZV17.getValue(), PromotionType.ZV18.getValue(), PromotionType.ZV19.getValue(),
-			PromotionType.ZV20.getValue(), PromotionType.ZV21.getValue(), PromotionType.ZV22.getValue(), PromotionType.ZV23.getValue(), PromotionType.ZV24.getValue());
-	
-	private final List<String> UNIT = Arrays.asList(R.getResource("ctkm.import.new.le").toUpperCase(), R.getResource("ctkm.import.new.thung").toUpperCase());
-	
 	private Integer excelType;
 	
 	private static PromotionCatalogAction action;
@@ -201,6 +189,9 @@ public class PromotionCatalogAction extends AbstractAction {
 	private String firstBuyType;
 	private Integer firstBuyNum;
 	private Boolean newCusFlag;
+	private Boolean gameFlag;
+	private Long selectedGameId;
+	private Long gameId;
 	private Integer newCusNumCycle;
 	private Integer checkOpenFullNode;
 	private Boolean ontopFlag;
@@ -265,6 +256,7 @@ public class PromotionCatalogAction extends AbstractAction {
 	public List<CellBean> listUnitError;
 	private List<ApParam> lstTypeCode;
 	private List<Product> listProduct;
+	private List<GameVO> listGame;
 	private List<Integer> listMinQuantity;
 	private List<BigDecimal> listMinAmount;
 	private List<Integer> listMaxQuantity;
@@ -323,7 +315,6 @@ public class PromotionCatalogAction extends AbstractAction {
 		isVNMAdmin = StaffSpecificType.VIETTEL_ADMIN.getValue().equals(currentUser.getStaffRoot().getObjectType());
 		staff = staffMgr.getStaffById(currentUser.getUserId());
 	}
-	
 	@Override
 	public String execute() throws Exception {
 		resetToken(result);
@@ -609,6 +600,56 @@ public class PromotionCatalogAction extends AbstractAction {
 							promotionProgram.setNewCusFlag(null);
 							promotionProgram.setNewCusNumCycle(null);
 						}
+						if (Boolean.TRUE.equals(getGameFlag())) {
+							List<ProductGroup> listProductGroup = promotionProgramMgr.getListProductGroupByPromotionId(promotionId, ProductGroupType.KM);
+							
+							for(ProductGroup productGroupKM:listProductGroup)
+							{
+								ProductGroup productGroupBuy = promotionProgramMgr.getProductGroupByCode(productGroupKM.getProductGroupCode(), ProductGroupType.MUA, promotionId);
+								List<NewLevelMapping> listLevelMapping = promotionProgramMgr.getListMappingLevel(productGroupBuy.getId(), productGroupKM.getId(), 1, 10).getLstObject();
+								for(NewLevelMapping levelMapping:listLevelMapping)
+								{
+									for(ExMapping exLevelKM:levelMapping.getListExLevelKM())
+									{
+										for(SubLevelMapping subLevel:exLevelKM.getListSubLevel())
+										{
+											if(subLevel.getProductCode().equals(ConstantManager.GAME_CODE))
+											{
+												if(subLevel.getIsRequired()!=1)
+												{
+													result.put("errMsg", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.new.game.required",productGroupKM.getProductGroupCode(),levelMapping.getLevelCode(),ConstantManager.GAME_CODE));
+													result.put(ERROR, true);
+													return SUCCESS;
+												}
+											}
+											else
+											{
+												result.put("errMsg", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.new.game.code",productGroupKM.getProductGroupCode(),levelMapping.getLevelCode(),ConstantManager.GAME_CODE));
+												result.put(ERROR, true);
+												return SUCCESS;
+											}
+										}
+									}
+								}
+							}
+							PromotionShopMapFilter filter = new PromotionShopMapFilter();
+							filter.setProgramId(promotionProgram.getId());
+							filter.setStatus(ActiveType.RUNNING);
+							List<PromotionShopMapVO> lstShopMap = promotionProgramMgr.getPromotionShopMapVOByFilter(filter, null);
+							for(PromotionShopMapVO shopMap:lstShopMap)
+							{
+								if((shopMap.getAmountMax()!=null&&shopMap.getAmountMax().compareTo(BigDecimal.ZERO)>0)
+									||(shopMap.getNumMax()!=null&&shopMap.getNumMax().compareTo(BigDecimal.ZERO)>0)
+									||((shopMap.getQuantityMaxShop()!=null&&shopMap.getQuantityMaxShop().compareTo(BigDecimal.ZERO)>0)))
+								{
+									result.put("errMsg", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.new.game.shop",shopMap.getShopName()));
+									result.put(ERROR, true);
+									return SUCCESS;
+								}
+							}
+							
+						}
+						
 						/*
 						 * if (Boolean.TRUE.equals(ontopFlag)) {
 						 * promotionProgram.setOntopFlag(PromotionProgramMgr.
@@ -906,7 +947,7 @@ public class PromotionCatalogAction extends AbstractAction {
 				description = description.trim();
 				promotionProgram.setDescription(description);
 				if (discountType == null) {
-					promotionProgram.setDiscountType(0);
+					promotionProgram.setDiscountType(-1);
 					promotionProgram.setRewardType(rewardType);
 				} else {
 					promotionProgram.setDiscountType(discountType);
@@ -1008,7 +1049,61 @@ public class PromotionCatalogAction extends AbstractAction {
 
 				promotionProgram.setStatus(ActiveType.parseValue(status));
 				
+				if(gameFlag)
+				{
+					promotionProgram.setGameFlag(1);
+					GamePromotionProgram gamePromotionProgram = gameMgr.findGamePromotionByPromotionId(promotionProgram.getId());
+					if(gamePromotionProgram != null) {
+						////--Game--////
+						if(gamePromotionProgram.getGame().getId() != gameId) {
+							commonMgr.deleteEntity(gamePromotionProgram);
+							gamePromotionProgram = new GamePromotionProgram();
+							if (gameId != null) {
+								Game game = commonMgr.getEntityById(Game.class, gameId);
+								gamePromotionProgram.setGame(game);
+							}
+							gamePromotionProgram.setStatus(promotionProgram.getStatus());
+							gamePromotionProgram.setPromotionProgram(promotionProgram);
+							gamePromotionProgram.setCreateUser(getLogInfoVO().getStaffCode());
+							gamePromotionProgram.setCreateDate(commonMgr.getSysDate());
+							gamePromotionProgram = gameMgr.createGamePromotionProgram(gamePromotionProgram);
+						}
+						else
+						{
+							gamePromotionProgram.setStatus(promotionProgram.getStatus());
+							gamePromotionProgram.setUpdateUser(getLogInfoVO().getStaffCode());
+							gamePromotionProgram.setUpdateDate(commonMgr.getSysDate());
+							gameMgr.updateGamePromotionProgram(gamePromotionProgram);
+						}
+					} else {
+						gamePromotionProgram  = new GamePromotionProgram();
+						if (gameId != null) {
+							Game game = commonMgr.getEntityById(Game.class, gameId);
+							gamePromotionProgram.setGame(game);
+						}						
+						gamePromotionProgram.setStatus(promotionProgram.getStatus());
+						gamePromotionProgram.setPromotionProgram(promotionProgram);
+						gamePromotionProgram.setCreateUser(getLogInfoVO().getStaffCode());
+						gamePromotionProgram.setCreateDate(commonMgr.getSysDate());
+						gamePromotionProgram = gameMgr.createGamePromotionProgram(gamePromotionProgram);
+					}
+				}
+				else
+				{
+					if(promotionProgram.getGameFlag()!=null && promotionProgram.getGameFlag()==1)
+					{
+						GamePromotionProgram gamePromotionProgram = gameMgr.findGamePromotionByPromotionId(promotionProgram.getId());
+						if(gamePromotionProgram!=null)
+						{
+							commonMgr.deleteEntity(gamePromotionProgram);
+						}
+					}
+					promotionProgram.setGameFlag(null);
+				}
+				
 				promotionProgramMgr.updatePromotionProgram(promotionProgram, getLogInfoVO());
+				
+				
 				List<Voucher> voucher = voucherMgr.getListVoucherByPromotion(promotionProgram.getId());
 				voucherMgr.updateVoucherByPromotion(voucher, promotionProgram);
 				//update promotion newcus config
@@ -1170,6 +1265,7 @@ public class PromotionCatalogAction extends AbstractAction {
 						result.put(ERROR, true);
 						return SUCCESS;
 					}
+					
 					promotionProgram.setFromApplyDate(startApplyDate);
 					
 					if(!StringUtil.isNullOrEmpty(toApplyDate) && DateUtil.checkInvalidFormatDate(toApplyDate)) {
@@ -1189,7 +1285,10 @@ public class PromotionCatalogAction extends AbstractAction {
 					}
 					promotionProgram.setToApplyDate(endApplyDate);	
 				}
-				
+				if(getGameFlag())
+				{
+					promotionProgram.setGameFlag(1);
+				}
 				promotionProgram = promotionProgramMgr.createPromotionProgram(promotionProgram, getLogInfoVO());
 
 				if (promotionProgram != null && promotionProgram.getId() > 0 && ActiveType.RUNNING.getValue().equals(promotionProgram.getNewCusFlag())) {
@@ -1199,6 +1298,18 @@ public class PromotionCatalogAction extends AbstractAction {
 					promotionNewcusConfig.setSubCatIds(lstSubCategoryId);
 					promotionNewcusConfig.setPromotionProgram(promotionProgram);
 					promotionNewcusConfigMgr.createPromotionNewcusConfig(promotionNewcusConfig, getLogInfoVO());
+				}
+				if(getGameFlag()&&promotionProgram.getGameFlag()==1) {
+					GamePromotionProgram gamePromotionProgram  = new GamePromotionProgram();
+					if (gameId != null) {
+						Game game = commonMgr.getEntityById(Game.class, gameId);
+						gamePromotionProgram.setGame(game);
+					}
+					gamePromotionProgram.setStatus(promotionProgram.getStatus());
+					gamePromotionProgram.setPromotionProgram(promotionProgram);
+					gamePromotionProgram.setCreateUser(getLogInfoVO().getStaffCode());
+					gamePromotionProgram.setCreateDate(commonMgr.getSysDate());
+					gamePromotionProgram = gameMgr.createGamePromotionProgram(gamePromotionProgram);
 				}
 				result.put(ERROR, false);
 				result.put("promotionId", promotionProgram.getId());
@@ -1218,2748 +1329,13 @@ public class PromotionCatalogAction extends AbstractAction {
 	}
 	
 	public String importExcelNew() throws Exception {
-		if(excelType.equals(3)) {			
-			return importExcelPromotion24ZVNew();
-		} else if(excelType.equals(2)) {		
+		if(excelType.equals(2)) {
+			// import theo luồng mới			
 			return importExcelPromotionNew();
 		} else {
 			return importExcel();
 		}
 	}
-	
-	/**
-	 * import 24ZV new
-	 * nghiep vụ mới
-	 * */	
-	public String importExcelPromotion24ZVNew() {
-		try {
-			List<List<String>> infoPromotion = new ArrayList<>();
-			List<List<String>> infoPromotionDetail = new ArrayList<>();
-			List<List<String>> infoPromotionShop = new ArrayList<>();
-			
-			List<CellBean> infoPromotionError = new ArrayList<>();
-			List<CellBean> infoPromotionDetailError = new ArrayList<>();
-			List<CellBean> infoPromotionShopError = new ArrayList<>();
-			List<PromotionImportVO> promotionImportNewErrorVOs = null;
-			
-			getDataImportExcelPromotionNew(infoPromotion, infoPromotionDetail, infoPromotionShop, infoPromotionError, infoPromotionDetailError, infoPromotionShopError);
-			// xu ly xuất lỗi
-			if (infoPromotionError.size() > 0 || infoPromotionDetailError.size() > 0 || infoPromotionShopError.size() > 0) {
-				return WriteFileErrorNew(infoPromotionError, infoPromotionDetailError, infoPromotionShopError);
-			}			
-			
-			checkStructureFile(infoPromotionDetail, infoPromotionDetailError);
-			if (infoPromotionError.size() > 0 || infoPromotionDetailError.size() > 0 || infoPromotionShopError.size() > 0) {
-				return WriteFileErrorNew(infoPromotionError, infoPromotionDetailError, infoPromotionShopError);
-			}
-			
-			promotionImportNewErrorVOs = new ArrayList<>();
-			List<PromotionImportVO> promotionImportNewVOs = convertDataImportExcelPromotionNew(infoPromotion, infoPromotionDetail, infoPromotionShop, infoPromotionError, infoPromotionDetailError, infoPromotionShopError);
-			if(promotionImportNewVOs != null && promotionImportNewVOs.size() > 0) {
-				promotionImportNewVOs = validatePromotionImportNew(promotionImportNewVOs, promotionImportNewErrorVOs);
-			}
-			
-			// sap xep lại cac mức cho CTKM
-			promotionImportNewVOs = sortPromotionImportNew(promotionImportNewVOs);
-			//save
-			totalItem = promotionImportNewErrorVOs.size() + promotionImportNewVOs.size();
-			numFail = promotionImportNewErrorVOs.size();
-			if(promotionImportNewVOs != null && promotionImportNewVOs.size() > 0) {
-				promotionImportNewErrorVOs = promotionProgramMgr.saveImportPromotionNewEx(promotionImportNewVOs, promotionImportNewErrorVOs, getLogInfoVO());
-				// thông tin tra ve
-				numFail = promotionImportNewErrorVOs.size();
-				for (PromotionImportVO promotion : promotionImportNewVOs) {
-					PromotionProgram pp = promotionProgramMgr.getPromotionProgramByCode(promotion.getPromotionCode());
-					if (pp != null) {
-						promotionProgramMgr.updateMD5ValidCode(pp, getLogInfoVO());
-					}
-				}
-			}
-			
-			// xu ly nêu có loi
-			if (promotionImportNewErrorVOs.size() > 0) {
-				convertObjectPromotionToCellBeanNew(promotionImportNewErrorVOs, infoPromotionError, infoPromotionDetailError, infoPromotionShopError);
-				if (infoPromotionError.size() > 0 || infoPromotionDetailError.size() > 0 || infoPromotionShopError.size() > 0) {
-					return WriteFileErrorNew(infoPromotionError, infoPromotionDetailError, infoPromotionShopError);
-				}
-			}
-		} catch(Exception ex) {
-			errMsg = Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "system.error");
-			LogUtility.logErrorStandard(ex, R.getResource("web.log.message.error", "vnm.web.action.program.PromotionCatalogAction.importExcelPromotionNew"), createLogErrorStandard(actionStartTime));
-		}		
-		return SUCCESS;
-	}
-	
-	private void getDataImportExcelPromotionNew (List<List<String>> infoPromotion, List<List<String>> infoPromotionDetail, List<List<String>> infoPromotionShop, List<CellBean> infoPromotionError, List<CellBean> infoPromotionDetailError, List<CellBean> infoPromotionShopError) {
-		InputStream is = null;
-		Workbook promotionWorkBook = null;		
-		List<String> promotionProgramCodes = new ArrayList<>();
-		List<String> programAndTypeCodes = new ArrayList<>();
-		
-		try {
-			is = new FileInputStream(excelFile);
-			if (!is.markSupported()) {
-				is = new PushbackInputStream(is, 8);
-			}
-			if (POIFSFileSystem.hasPOIFSHeader(is)) {
-				promotionWorkBook = new HSSFWorkbook(is);
-			} else if (POIXMLDocument.hasOOXMLHeader(is)) {
-				promotionWorkBook = new XSSFWorkbook(OPCPackage.open(is));
-			}
-			if (promotionWorkBook != null) {
-				Sheet promotionSheet = promotionWorkBook.getSheetAt(0);
-				Sheet promotionDetailSheet = promotionWorkBook.getSheetAt(1);
-				Sheet promotionShopSheet = promotionWorkBook.getSheetAt(2);
-				if(promotionSheet!=null) {
-					getPromotionInfoFromExcelFile(infoPromotion, promotionSheet, promotionProgramCodes, programAndTypeCodes, infoPromotionError);
-				}
-				if(promotionDetailSheet!=null) {
-					getPromotionDetailFromExcelFile(infoPromotionDetail, promotionDetailSheet, promotionProgramCodes, programAndTypeCodes, infoPromotionDetailError);
-				}
-				if(promotionShopSheet!=null) {
-					getPromotionShopMapFromExcelFile(infoPromotionShop, promotionShopSheet, promotionProgramCodes, programAndTypeCodes, infoPromotionShopError);
-				}
-			}
-		} catch (FileNotFoundException e) {
-			LogUtility.logError(e, "PromotionCatalogAction.getDataImportExcelPromotion()" + e.getMessage());
-		} catch (InvalidFormatException e) {
-			LogUtility.logError(e, "PromotionCatalogAction.getDataImportExcelPromotion()" + e.getMessage());
-		} catch (IOException e) {
-			LogUtility.logError(e, "PromotionCatalogAction.getDataImportExcelPromotion()" + e.getMessage());
-		} catch (Exception e) {
-			LogUtility.logError(e, "PromotionCatalogAction.getDataImportExcelPromotion()" + e.getMessage());
-		}
-	}
-	
-	private void getPromotionInfoFromExcelFile(List<List<String>> infoPromotion, Sheet sheetPromotionInfo, List<String> promotionCodes, List<String> programAndTypeCodes, List<CellBean> promotionInfoError) throws BusinessException {
-		final int NUM_COL_PROMOTION_INFO_SHEET = 15;
-		final List<String> FREE_ITEMS_REWARD_TYPES = Arrays.asList(PromotionType.ZV03.getValue(), PromotionType.ZV06.getValue(), PromotionType.ZV09.getValue()
-				, PromotionType.ZV12.getValue(), PromotionType.ZV15.getValue(), PromotionType.ZV18.getValue(), PromotionType.ZV21.getValue(), PromotionType.ZV24.getValue());
-		final List<String> PROGRAM_TYPE_SPECIALS = Arrays.asList(PromotionType.ZV19.getValue(), PromotionType.ZV20.getValue(), PromotionType.ZV22.getValue(), PromotionType.ZV23.getValue());
-		boolean isContinue = true;
-		String errMsg = "";
-		Date fromDate = null;
-		Date toDate = null;
-		DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
-		dateFormat.setLenient(false);
-		Iterator<?> rowIter = sheetPromotionInfo.rowIterator();
-		rowIter.next();
-		
-		while (rowIter.hasNext()) {
-			Row currentRow = (Row) rowIter.next();
-			isContinue = true;
-			for(int i = 0; i<NUM_COL_PROMOTION_INFO_SHEET; i++) {
-				if (currentRow.getCell(i) != null && !StringUtil.isNullOrEmpty(getCellValueToString(currentRow.getCell(i)))) {
-					isContinue = false;
-					break;
-				}
-			}
-			
-			if(isContinue) {
-				continue;
-			}
-			
-			List<String> rowData = new ArrayList<>();
-			//MA CHUONG TRINH KHUYEN MAI
-			rowData.add(getCellValueToString(currentRow.getCell(0)).toUpperCase().trim());
-			//TEN CHUONG TRINH KHUYEN MAI
-			rowData.add(getCellValueToString(currentRow.getCell(1)).trim());
-			//PHIEN BAN
-			rowData.add(getCellValueToString(currentRow.getCell(2)).trim());
-			//LOAI CHUONG TRINH KHUYEN MAI
-			rowData.add(getCellValueToString(currentRow.getCell(3)).trim());
-			//TU NGAY
-			rowData.add(getCellValueToString(currentRow.getCell(4)).trim());
-			//DEN NGAY
-			rowData.add(getCellValueToString(currentRow.getCell(5)).trim());
-			//SO THONG BAO
-			rowData.add(getCellValueToString(currentRow.getCell(6)).trim());
-			//TEN NHOM / SAN PHAM
-			rowData.add(getCellValueToString(currentRow.getCell(7)).trim());
-			//MO TA CHUONG TRINH 
-			rowData.add(getCellValueToString(currentRow.getCell(8)).trim());
-			//BOI SO
-			rowData.add(getCellValueToString(currentRow.getCell(9)).trim());
-			//TOI UU
-			rowData.add(getCellValueToString(currentRow.getCell(10)).trim());
-			//LOAI TRA THUONG
-			rowData.add(getCellValueToString(currentRow.getCell(11)).trim());
-			//TU NGAY TRA THUONG
-			rowData.add(getCellValueToString(currentRow.getCell(12)).trim());
-			//DEN NGAY TRA THUONG
-			rowData.add(getCellValueToString(currentRow.getCell(13)).trim());
-			//LOAI CHIEU KHAU
-			rowData.add(getCellValueToString(currentRow.getCell(14)).trim());
-			errMsg = "";
-			//Kiem tra Ma Chuong trinh
-			String promotionCode  = rowData.get(0);
-			boolean isDuplicated = false;
-			if (StringUtil.isNullOrEmpty(promotionCode)) {
-				errMsg += R.getResource("catalog.promotion.import.column.null", "Mã CTKM");
-			} else {
-				errMsg += ValidateUtil.validateField(promotionCode, "catalog.promotion.import.column.progcode", 50, ConstantManager.ERR_REQUIRE, ConstantManager.ERR_MAX_LENGTH, ConstantManager.ERR_EXIST_SPECIAL_CHAR_IN_CODE);
-			}
-			for (int i = 0; i < infoPromotion.size(); i++) {
-				if (promotionCode.equals(infoPromotion.get(i).get(0))) {
-					isDuplicated = true;
-					break;
-				}
-			}
-			
-			if (isDuplicated) {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "promotion.product.import.duplicate", rowData);
-				errMsg += "\n";
-			}
-			
-			PromotionProgram existPromotion = null;
-			existPromotion = promotionProgramMgr.getPromotionProgramByCode(promotionCode);
-			if (existPromotion != null && !ActiveType.WAITING.equals(existPromotion.getStatus())) {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.program.is.running");
-				errMsg += "\n";
-			}
-			//Kiem tra ten chuong trinh
-			String promotionName  = rowData.get(1);
-			if (promotionName.isEmpty()) {
-				errMsg += R.getResource("catalog.promotion.import.column.null", "Tên CTKM");
-			} else {
-				if(promotionName.length() > 500) {
-					errMsg += R.getResource("catalog.promotion.import.over.max.length") + "\n";
-					errMsg = errMsg.replaceAll("%max%", "500");
-					errMsg = errMsg.replaceAll("%colName%", "Tên CTKM");
-				} else {
-					errMsg += ValidateUtil.validateField(promotionName, "catalog.promotion.name", 500, ConstantManager.ERR_EXIST_SPECIAL_CHAR_IN_NAME);	
-				}
-			}
-			//Kiem tra loai Chuong trinh
-			String typePromotion = rowData.get(3).toUpperCase();
-			if(typePromotion.isEmpty()) {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "common.required", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.type"));
-				errMsg += "\n";
-			} else {
-				if(!PROMOTION_TYPES.contains(typePromotion)) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.exists.before", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.type"));
-					errMsg += "\n";
-				}
-			}
-			fromDate = null;
-			Date promotionBeginDate = null;
-			//kiem tra TU NGAY
-			String fromDatePromo = rowData.get(4);
-			if(fromDatePromo.isEmpty()) {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "common.required", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "imp.epx.tuyen.clmn.tuNgay"));
-				errMsg += "\n";
-			} else {
-				try {
-					fromDate = dateFormat.parse(fromDatePromo);
-					promotionBeginDate = fromDate;
-					if(fromDate!=null&&fromDate.before(dateFormat.parse(dateFormat.format(new Date())))) {
-						errMsg += R.getResource("common.invalid.format.date.before", R.getResource("imp.epx.tuyen.clmn.tuNgay"),R.getResource("imp.epx.tuyen.clmn.currentDate"));
-						errMsg += "\n";
-					}
-				} catch (ParseException e) {
-					errMsg += R.getResource("common.invalid.format.date", R.getResource("imp.epx.tuyen.clmn.tuNgay"));
-					errMsg += "\n";
-				}
-			}
-			
-			//kiem tra DEN NGAY
-			String toDatePromo = rowData.get(5);
-			if(!toDatePromo.isEmpty()) {
-				try {
-					toDate = dateFormat.parse(toDatePromo);
-					if(fromDate!=null && fromDate.after(toDate)) {
-						errMsg += R.getResource("common.fromdate.greater.todate") + "\n";
-						errMsg += "\n";
-					}
-				} catch (ParseException e) {
-					errMsg += R.getResource("common.invalid.format.date", R.getResource("imp.epx.tuyen.clmn.denNgay"));
-					errMsg += "\n";
-				}
-			}
-			
-			//kiem tra so thong bao
-			String noticeCode = rowData.get(6).toUpperCase();
-			if(!noticeCode.isEmpty()){
-				if(noticeCode.length() > 100) {
-					errMsg += R.getResource("catalog.promotion.import.over.max.length") + "\n";
-					errMsg = errMsg.replaceAll("%max%", "100");
-					errMsg = errMsg.replaceAll("%colName%", "Số thông báo");
-				} else {
-					errMsg += ValidateUtil.validateField(noticeCode, "catalog.promotion.noticecode", 100, ConstantManager.ERR_EXIST_SPECIAL_CHAR_IN_SPECIAL);	
-				}
-			} else {
-				errMsg += R.getResource("catalog.promotion.import.notice.code.obligate") + "\n";
-			}
-			 
-			//kiem tra ten / nhom san pham
-			String groupProductName = rowData.get(7);			
-			if (!groupProductName.isEmpty()) {
-				if(groupProductName.length()>1000) {
-					errMsg += R.getResource("catalog.promotion.import.over.max.length") + "\n";
-					errMsg = errMsg.replaceAll("%max%", "1000");
-					errMsg = errMsg.replaceAll("%colName%", "Nhóm/Tên SP hàng bán");
-				} else {
-					errMsg += ValidateUtil.validateField(groupProductName, "catalog.promotion.descriptionproduct", 1000, ConstantManager.ERR_EXIST_SPECIAL_CHAR_IN_SPECIAL);
-				}
-			} else {
-				errMsg += R.getResource("catalog.promotion.import.description.product.obligate") + "\n";
-			}
-			
-			// kiem tra mo ta chuong trinh
-			String desPromotion = rowData.get(8);
-			if(desPromotion.length()>1000) {
-				errMsg += R.getResource("catalog.promotion.import.over.max.length") + "\n";
-				errMsg = errMsg.replaceAll("%max%", "1000");
-				errMsg = errMsg.replaceAll("%colName%", "Mô tả chương trình");
-			}
-			// kiem tra boi so
-			String multiply = rowData.get(9);
-			if(!multiply.isEmpty())
-			if(!("0".equals(multiply) || "1".equals(multiply))) {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.multiple.incorrect.format") + "\n";
-			}
-			String 	rescursive = rowData.get(10);
-			// kiem tra toi uu
-			if(!rescursive.isEmpty())
-			if(!("0".equals(rescursive) || "1".equals(rescursive))) {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.recursive.incorrect.format") + "\n";
-			}
-			//Kiem tra LOAI TRA THUONG
-			String paymentType = rowData.get(11) ;
-			if(!("2".equals(paymentType) || "1".equals(paymentType) || (FREE_ITEMS_REWARD_TYPES.contains(typePromotion)&&paymentType.isEmpty()))) {
-				errMsg += R.getResource("ctkm.import.new.product.rewardtype");
-				errMsg += "\n";
-			} else {
-				if(FREE_ITEMS_REWARD_TYPES.contains(typePromotion)&&"2".equals(paymentType)) {
-					errMsg += R.getResource("catalog.promotion.import.voucher.not.use");
-					errMsg += "\n";
-				}
-			}
-
-			fromDate = null;
-			//kiem tra TU NGAY TRA THUONG
-			String fromDateReturn = rowData.get(12);
-			if(!fromDateReturn.isEmpty()) {
-				if(!"2".equals(paymentType)) {
-					errMsg += R.getResource("catalog.promotion.import.reward.date.not.use");
-					errMsg += "\n";
-				} else {
-					try {
-						fromDate = dateFormat.parse(fromDateReturn);
-						if(fromDate!=null&&fromDate.before(dateFormat.parse(dateFormat.format(new Date())))) {
-							errMsg += R.getResource("common.invalid.format.date.before", R.getResource("imp.epx.tuyen.clmn.tuNgay.traThuong"),R.getResource("imp.epx.tuyen.clmn.currentDate"));
-							errMsg += "\n";
-						}
-					} catch (ParseException e) {
-						errMsg += R.getResource("common.invalid.format.date", R.getResource("imp.epx.tuyen.clmn.tuNgay.traThuong"));
-						errMsg += "\n";
-					}
-				}
-
-				if(promotionBeginDate!=null&&fromDate!=null&&fromDate.before(promotionBeginDate)) {
-					errMsg += R.getResource("common.invalid.format.date.before", R.getResource("imp.epx.tuyen.clmn.tuNgay.traThuong"),R.getResource("imp.epx.tuyen.clmn.tuNgay"));
-					errMsg += "\n";
-				}
-			}
-			
-			//kiem tra DEN NGAY TRA THUONG
-			String toDateReturn = rowData.get(13);
-			if(!toDateReturn.isEmpty()) {
-				try {
-					toDate = dateFormat.parse(toDateReturn);
-					if(fromDate!=null && fromDate.after(toDate)) {
-						errMsg += R.getResource("common.fromdate.greater.todate.reward") + "\n";
-						errMsg += "\n";
-					}
-				} catch (ParseException e) {
-					errMsg += R.getResource("common.invalid.format.date", R.getResource("imp.epx.tuyen.clmn.denNgay.traThuong"));
-					errMsg += "\n";
-				}
-			}
-			
-			String typeDiscount = rowData.get(14);
-			if(PROGRAM_TYPE_SPECIALS.contains(rowData.get(3))) {
-					if(!"1".equals(typeDiscount) && !"2".equals(typeDiscount)) {
-						errMsg += R.getResource("ctkm.import.new.product.discountType");
-						errMsg += "\n";
-					}
-			}
-			
-			if(!StringUtil.isNullOrEmpty(errMsg)) {
-				CellBean cb = new CellBean();
-				cb.setContent1(rowData.get(0));
-				cb.setContent2(rowData.get(1));
-				cb.setContent3(rowData.get(2));
-				cb.setContent4(rowData.get(3));
-				cb.setContent5(rowData.get(4));
-				cb.setContent6(rowData.get(5));
-				cb.setContent7(rowData.get(6));
-				cb.setContent8(rowData.get(7));
-				cb.setContent9(rowData.get(8));
-				cb.setContent10(rowData.get(9));
-				cb.setContent11(rowData.get(10));
-				cb.setContent12(rowData.get(11));	
-				cb.setContent13(rowData.get(12));
-				cb.setContent14(rowData.get(13));
-				cb.setContent15(rowData.get(14));
-				cb.setErrMsg(errMsg);
-				promotionInfoError.add(cb);
-			}
-			
-			if(!promotionCodes.contains(promotionCode)) {
-				promotionCodes.add(promotionCode);
-			}
-			String programAndTypeCode = promotionCode + typePromotion;
-			if(!programAndTypeCodes.contains(programAndTypeCode)) {
-				programAndTypeCodes.add(programAndTypeCode);
-			}
-			infoPromotion.add(rowData);	
-		}
-	}
-	
-	private void getPromotionDetailFromExcelFile(List<List<String>> infoPromotionDetail, Sheet sheetPromotionDetail, List<String> promotionCodes, List<String> programAndTypeCodes, List<CellBean> promotionDetailError) throws BusinessException {
-		final int NUM_COL_PROMOTION_DETAIL_SHEET = 17;
-		boolean isContinue = true;
-		String errMsg = "";
-		Iterator<?> rowIter = sheetPromotionDetail.rowIterator();
-		rowIter.next();
-		while (rowIter.hasNext()) {
-			Row currentRow = (Row) rowIter.next();
-			isContinue = true;
-			for(int i = 0; i<NUM_COL_PROMOTION_DETAIL_SHEET; i++) {
-				if (currentRow.getCell(i) != null && !StringUtil.isNullOrEmpty(getCellValueToString(currentRow.getCell(i)))) {
-					isContinue = false;
-					break;
-				}
-			}
-			
-			if(isContinue) {
-				continue;
-			}
-			List<String> rowData = new ArrayList<>();
-			//MA CHUONG TRINH KHUYEN MAI
-			rowData.add(getCellValueToString(currentRow.getCell(0)).trim());
-			//LOAI CHUONG TRINH KHUYEN MAI
-			rowData.add(getCellValueToString(currentRow.getCell(1)).trim());
-			//MA NHOM
-			rowData.add(getCellValueToString(currentRow.getCell(2)).trim());
-			//MA MUC
-			rowData.add(getCellValueToString(currentRow.getCell(3)).trim());
-			//MUC CHA
-			rowData.add(getCellValueToString(currentRow.getCell(4)).trim());
-			//MUC CON
-			rowData.add(getCellValueToString(currentRow.getCell(5)).trim());
-			//MA SAN PHAM MUA
-			rowData.add(getCellValueToString(currentRow.getCell(6)).trim());
-			//SO LUONG SAN PHAM MUA
-			rowData.add(getCellValueToString(currentRow.getCell(7)).trim());
-			//DON VI TINH CHO SP MUA
-			rowData.add(getCellValueToString(currentRow.getCell(8)).trim());
-			//SO TIEN SP MUA
-			rowData.add(getCellValueToString(currentRow.getCell(9)).trim());
-			//THUOC TINH BAT BUOC CHO SP MUA
-			rowData.add(getCellValueToString(currentRow.getCell(10)).trim());
-			//SO TIEN SP KM
-			rowData.add(getCellValueToString(currentRow.getCell(11)).trim());
-			//% KM
-			rowData.add(getCellValueToString(currentRow.getCell(12)).trim());
-			//MA SP KM
-			rowData.add(getCellValueToString(currentRow.getCell(13)).trim());
-			//SO LUONG KM
-			rowData.add(getCellValueToString(currentRow.getCell(14)).trim());
-			//DON VI TINH CHO SPKM
-			rowData.add(getCellValueToString(currentRow.getCell(15)).trim());
-			//THUOC TINH BAT BUOC
-			rowData.add(getCellValueToString(currentRow.getCell(16)).trim());
-			
-			errMsg = "";
-			// KIEM TRA MA CHUONG TRINH
-			String promotionCode = rowData.get(0).toUpperCase();
-			if(!promotionCode.isEmpty()) {
-				errMsg += ValidateUtil.validateField(promotionCode, "catalog.promotion.import.column.progcode", 50, ConstantManager.ERR_REQUIRE, ConstantManager.ERR_MAX_LENGTH, ConstantManager.ERR_EXIST_SPECIAL_CHAR_IN_CODE);
-				PromotionProgram existPromotion = null;
-				existPromotion = promotionProgramMgr.getPromotionProgramByCode(promotionCode);
-				if (existPromotion != null && !ActiveType.WAITING.equals(existPromotion.getStatus())&&errMsg.isEmpty()) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.program.is.running");
-					errMsg += "\n";
-				}
-				if(!promotionCodes.contains(promotionCode)) {
-					errMsg += R.getResource("catalog.promotion.import.not.init") + "\n";
-				}				
-			} else {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "common.required", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.code"));
-				errMsg += "\n";
-			}
-			//KIEM TRA LOAI CHUONG TRINH
-			String typePromotion = rowData.get(1).toUpperCase();
-			if(typePromotion.isEmpty()) {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "common.required", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.type"));
-				errMsg += "\n";
-			} else {
-				if(!PROMOTION_TYPES.contains(typePromotion)) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.exists.before", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.type"));
-					errMsg += "\n";
-				}
-				if(!programAndTypeCodes.contains(promotionCode+typePromotion)) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.type.is.not.same2") + "\n";
-				}
-			}
-			//KIEM TRA MA NHOM
-			String groupCode = rowData.get(2).toUpperCase();
-			if(groupCode.isEmpty()) {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.promotion.group.code.obligate");
-				errMsg += "\n";
-			} else {
-				errMsg += ValidateUtil.validateField(groupCode, "catalog.promotion.import.column.groupcode", 50, ConstantManager.ERR_REQUIRE, 
-						 ConstantManager.ERR_MAX_LENGTH, ConstantManager.ERR_EXIST_SPECIAL_CHAR_IN_CODE);
-			}
-			//KIEM TRA MA MUC
-			String levelCode = rowData.get(3).toUpperCase();
-			if(levelCode.isEmpty()) {
-				errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.promotion.level.code.obligate");
-				errMsg += "\n";
-			} else {
-				errMsg += ValidateUtil.validateField(levelCode, "catalog.promotion.import.column.levelcode", 50, ConstantManager.ERR_REQUIRE, 
-						 ConstantManager.ERR_MAX_LENGTH, ConstantManager.ERR_EXIST_SPECIAL_CHAR_IN_CODE);
-			}
-			//KIEM TRA MUC CHA
-			String parentLevel =  rowData.get(4).toUpperCase();
-			if(!parentLevel.isEmpty()) {
-				if(!"X".equals(parentLevel)) {
-					errMsg+= R.getResource("catalog.promotion.import.selected.invalid",R.getResource("catalog.promotion.import.khtg.ctkm.clmn.parent"));
-				}
-			}
-			
-			//KIEM TRA MUC CON
-			String childLevel =  rowData.get(5).toUpperCase();
-			if(!childLevel.isEmpty()) {
-				if(!"X".equals(childLevel)) {
-					errMsg+= R.getResource("catalog.promotion.import.selected.invalid",R.getResource("catalog.promotion.import.khtg.ctkm.clmn.child"));
-				}
-			}
-			if(!parentLevel.isEmpty()&&!childLevel.isEmpty()) {
-				errMsg+= Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.parent.and.child");
-			}
-			//KIEM TRA MA SAN PHAM
-			String productCode = rowData.get(6).toUpperCase();
-			if(!productCode.isEmpty()) {
-				Product product = productMgr.getProductByCode(productCode.trim());
-				if (product == null) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "common.not.exist.in.db", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.buyproduct.code"));
-					errMsg += "\n";
-				} else {
-					if(!ActiveType.RUNNING.equals(product.getStatus())) {
-						errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.import.new.product.inactive", productCode);
-						errMsg += "\n";
-					}
-				}
-			}
-			//KIEM TRA SO LUONG SP
-			String productQuantity = rowData.get(7);
-			if(!productQuantity.isEmpty()) {
-				try {
-					Integer quantity = Integer.parseInt(productQuantity);
-					if(quantity<=0) {
-						errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.column.invalid.format.number", "SL Sản Phẩm Mua");
-					}
-				} catch (NumberFormatException e) {
-					errMsg += R.getResource("catalog.promotion.import.column.invalid.format.number", "SL Sản Phẩm Mua");
-				}
-
-			}
-			//KIEM TRA DON VI TINH CHO SP MUA
-			String unitProduct = rowData.get(8).toUpperCase();
-			if(!unitProduct.isEmpty()) {
-				if(!UNIT.contains(unitProduct)) {
-					errMsg+= Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "common.not.date", "Đơn Vị Tính cho SP Mua");
-				}
-			} 
-			//KIEM TRA SO TIEN SP MUA
-			String amountProduct = rowData.get(9);
-			if(!amountProduct.isEmpty())
-			try {
-				Double amount = Double.parseDouble(amountProduct);
-				if(amount<=0) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.column.invalid.format.number", "Số Tiền SP Mua");
-				}
-			} catch (NumberFormatException e) {
-				errMsg += R.getResource("catalog.promotion.import.column.invalid.format.number", "Số Tiền SP Mua");
-			}
-			//Kiem tra THUOC TINH BAT BUOC CHO SP MUA
-			String productCondition =  rowData.get(10).toUpperCase();
-			if(!productCondition.isEmpty()) {
-				if(!"X".equals(productCondition)) {
-					errMsg+= R.getResource("catalog.promotion.import.selected.invalid",R.getResource("catalog.promotion.import.khtg.ctkm.clmn.buy.required"));
-				}
-			}
-			//KIEM TRA SO TIEN SP KM
-			String discountAmount = rowData.get(11);
-			if(!discountAmount.isEmpty())
-			try {
-				Double discount = Double.parseDouble(discountAmount);
-				if(discount<=0) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.column.invalid.format.number", "Số Tiền SP KM");
-				}
-			} catch (NumberFormatException e) {
-				errMsg += R.getResource("catalog.promotion.import.column.invalid.format.number", "Số Tiền SP KM");
-			}
-			//KIEM TRA % khuyen mai
-			String percentPromo = rowData.get(12);
-			if(!percentPromo.isEmpty())
-			try {
-				Double percent = Double.parseDouble(percentPromo);
-				if(percent<= (double) 0 || percent > (double) 100) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.import.new.percent.zero");
-				}
-			} catch (NumberFormatException e) {
-				errMsg += R.getResource("catalog.promotion.import.column.invalid.format.number", "% KM");
-			}
-			//KIEM TRA MA SP Khuyen MAI
-			String promoProductCode = rowData.get(13).toUpperCase();
-			if(!promoProductCode.isEmpty()) {
-				Product promoProduct = productMgr.getProductByCode(promoProductCode);
-				if (promoProduct == null) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "common.not.exist.in.db", Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.disproduct.code"));
-					errMsg += "\n";
-				} else {
-					if(!ActiveType.RUNNING.equals(promoProduct.getStatus())) {
-						errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.import.new.product.inactive", promoProductCode);
-						errMsg += "\n";
-					}
-				}
-			}
-			//KIEM TRA SO LUONG KM
-			String promoQuantity = rowData.get(14);
-			if(!promoQuantity.isEmpty())
-			try {
-				Integer quantity = Integer.parseInt(promoQuantity);
-				if(quantity<=0) {
-					errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.column.invalid.format.number", "Số Lượng KM");
-				}
-			} catch (NumberFormatException e) {
-				errMsg += R.getResource("catalog.promotion.import.column.invalid.format.number", "Số Lượng KM");
-			}
-			//Kiem tra DON VI TINH CHO SP KHUYEN MAI
-			String unitPromoProduct = rowData.get(15).toUpperCase();
-			if(!unitPromoProduct.isEmpty()) {
-				if(!UNIT.contains(unitPromoProduct)) {
-					errMsg+= Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "common.not.date", "Đơn Vị Tính cho SP KM");
-				}
-			}
-			//Kiem tra THUOC TINH BAT BUOC
-			String promoCondition =  rowData.get(16).toUpperCase();
-			if(!promoCondition.isEmpty()) {
-				if(!"X".equals(promoCondition)) {
-					errMsg+= R.getResource("catalog.promotion.import.selected.invalid",R.getResource("catalog.promotion.import.khtg.ctkm.clmn.KM.required"));
-				}
-			}
-			//Kiem tra du lieu muc
-			if(childLevel.isEmpty()&&parentLevel.isEmpty()&&promoProductCode.isEmpty()&&productCode.isEmpty()) {
-				errMsg+= R.getResource("catalog.promotion.import.required.product");
-			}
-			if(!errMsg.isEmpty()) {
-				CellBean cb = new CellBean();
-				cb.setContent1(rowData.get(0));
-				cb.setContent2(rowData.get(1));
-				cb.setContent3(rowData.get(2));
-				cb.setContent4(rowData.get(3));
-				cb.setContent5(rowData.get(4));
-				cb.setContent6(rowData.get(5));
-				cb.setContent7(rowData.get(6));
-				cb.setContent8(rowData.get(7));
-				cb.setContent9(rowData.get(8));
-				cb.setContent10(rowData.get(9));
-				cb.setContent11(rowData.get(10));
-				cb.setContent12(rowData.get(11));    
-				cb.setContent13(rowData.get(12));
-				cb.setContent14(rowData.get(13));
-				cb.setContent15(rowData.get(14));
-				cb.setContent16(rowData.get(15));
-				cb.setContent17(rowData.get(16));
-				cb.setErrMsg(errMsg);
-				promotionDetailError.add(cb);
-			}
-			infoPromotionDetail.add(rowData);
-		}
-	}
-	
-	private void getPromotionShopMapFromExcelFile(List<List<String>> infoPromotionShop, Sheet sheetPromotionShopMap, List<String> promotionCodes, List<String> programAndTypeCodes, List<CellBean> promotionShopMapError) throws BusinessException, DataAccessException {	
-		final int NUM_COL_PROMOTION_SHOP_MAP_SHEET = 5;
-		boolean isContinue = true;
-		String errMsg = "";
-		Iterator<?> rowIter = sheetPromotionShopMap.rowIterator();
-		rowIter.next();
-		while (rowIter.hasNext()) {
-			Row currentRow = (Row) rowIter.next();
-			isContinue = true;
-			for(int i = 0; i<NUM_COL_PROMOTION_SHOP_MAP_SHEET; i++) {
-				if (currentRow.getCell(i) != null && !StringUtil.isNullOrEmpty(getCellValueToString(currentRow.getCell(i)))) {
-					isContinue = false;
-					break;
-				}
-			}
-			
-			if(isContinue) {
-				continue;
-			}
-			
-			List<String> rowData = new ArrayList<>();
-			//MA CHUONG TRINH
-			rowData.add(getCellValueToString(currentRow.getCell(0)).trim());
-			//MA DON VI
-			rowData.add(getCellValueToString(currentRow.getCell(1)).trim());
-			//SO SUAT
-			rowData.add(getCellValueToString(currentRow.getCell(2)).trim());
-			//SO TIEN
-			rowData.add(getCellValueToString(currentRow.getCell(3)).trim());
-			//SO LUONG
-			rowData.add(getCellValueToString(currentRow.getCell(4)).trim());
-			
-			//Kiem tra
-			errMsg = "";
-			//kiem tra ma chuong trinh
-			String promoCode = rowData.get(0);
-			if (promoCode.isEmpty()) {
-				errMsg += R.getResource("catalog.promotion.import.promotion.code.obligate") + "\n";
-			} else {
-				if(!promotionCodes.contains(promoCode.toUpperCase())) {
-					errMsg += R.getResource("catalog.promotion.import.not.init") + "\n";
-				}
-			}
-			//Kiem tra MA DON VI
-			String shopCode = rowData.get(1).toUpperCase();
-			if(shopCode.isEmpty()) {
-				errMsg += R.getResource("catalog.promotion.import.unit.code.obligate") + "\n";
-			} else {
-				if(shopMgr.getShopByCode(shopCode) == null){
-					errMsg += R.getResource("catalog.promotion.import.unit.code.not.permission") + "\n";
-				} else if (currentUser != null && currentUser.getShopRoot() != null){ 
-					// kiem tra don vi co thuoc quyen quan ly cua user
-					List<Shop> listShopChild = promotionProgramMgr.getListChildByShopId(currentUser.getShopRoot().getShopId());
-					// Kiem tra shop co thuoc quen quan ly cua user dang nhap
-					boolean isShopMapWithUser = false;
-					for(Shop shop: listShopChild){
-						if(shopCode.toLowerCase().equals(shop.getShopCode().toLowerCase())){
-							isShopMapWithUser = true;
-							break;
-						}
-					}
-					if(!isShopMapWithUser){
-						errMsg += R.getResource("catalog.promotion.import.unit.code.not.permission.by.current.user") + "\n";
-					}
-				}
-				
-				// kiem tra SO SUAT
-				String quantityMax = rowData.get(2);
-				if(!quantityMax.isEmpty()){
-					if(quantityMax.length() > 9 ) {
-						errMsg += R.getResource("catalog.promotion.import.over.max.length") + "\n";
-						errMsg = errMsg.replaceAll("%max%", "9");
-						errMsg = errMsg.replaceAll("%colName%", "Số suất");
-					}
-					try { 
-						Integer num = Integer.parseInt(quantityMax);
-						if(num<0) {
-							errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.quantity.max.incorrect.format");
-						}
-					} catch(NumberFormatException e) {
-						errMsg += R.getResource("catalog.promotion.import.quantity.max.incorrect.format") + "\n";
-					}
-				}
-				// kiem tra SO TIEN
-				String amountMax = rowData.get(3);
-				if(!amountMax.isEmpty()){
-					if(amountMax.length() > 9 ){
-						errMsg += R.getResource("catalog.promotion.import.over.max.length") + "\n";
-						errMsg = errMsg.replaceAll("%max%", "9");
-						errMsg = errMsg.replaceAll("%colName%", "Số tiền");
-					}
-					try { 
-						Double num = Double.parseDouble(amountMax);
-						if(num<0) {
-							errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.amount.max.incorrect.format");
-						}
-					} catch(NumberFormatException e) {
-						errMsg += R.getResource("catalog.promotion.import.amount.max.incorrect.format") + "\n";
-					}
-				}
-				//kiemn tra SO LUONG
-				String numMax = rowData.get(4);
-				if (!numMax.isEmpty()) {
-					if(numMax != null && numMax.length() > 9){
-						errMsg += R.getResource("catalog.promotion.import.over.max.length") + "\n";
-						errMsg = errMsg.replaceAll("%max%", "9");
-						errMsg = errMsg.replaceAll("%colName%", "Số lượng");
-					}
-					try { 
-						Integer num = Integer.parseInt(amountMax);
-						if(num<0) {
-							errMsg += Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "catalog.promotion.import.num.max.incorrect.format");
-						}
-					} catch(NumberFormatException e) {
-						errMsg += R.getResource("catalog.promotion.import.num.max.incorrect.format") + "\n";
-					}
-				}
-			}
-			if(!errMsg.isEmpty()) {
-				CellBean cb = new CellBean();
-				cb.setContent1(rowData.get(0));
-				cb.setContent2(rowData.get(1));
-				cb.setContent3(rowData.get(2));
-				cb.setContent4(rowData.get(3));
-				cb.setContent5(rowData.get(4));
-				cb.setErrMsg(errMsg);
-				promotionShopMapError.add(cb);
-			}
-			infoPromotionShop.add(rowData);
-		}
-	}
-	
-	private void checkStructureFile (List<List<String>> infoPromotionDetail, List<CellBean> infoPromotionDetailError) {
-		int rowIndex = 0;
-		int len = infoPromotionDetail.size();
-		List<String> parentHeader;
-		List<String> row;
-		String parentHeaderText;
-		String rowText;
-		boolean extraRowLevel;
-		boolean childLevel;
-		while(rowIndex < len) {	
-			parentHeader = infoPromotionDetail.get(rowIndex);
-			parentHeaderText = parentHeader.get(0)+parentHeader.get(2)+parentHeader.get(3);
-			if(!isParentHeader(parentHeader)) {
-				infoPromotionDetailError.add(convertDetailRowToCellBean(parentHeader,Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.import.new.structure", rowIndex+2)));
-				return;
-			}
-			rowIndex++;
-			extraRowLevel = false;
-			childLevel = false;
-			while(rowIndex < len) {
-				row = infoPromotionDetail.get(rowIndex);
-				rowText = row.get(0)+row.get(2)+row.get(3);
-				if(!rowText.equalsIgnoreCase(parentHeaderText)) {
-					break;
-				}
-				if(isParentHeader(row)) {
-					infoPromotionDetailError.add(convertDetailRowToCellBean(row,Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.import.new.structure", rowIndex+2)));
-					return;
-				}
-				if(isParentContent(row)) {
-					if(!extraRowLevel&&!childLevel) {
-						rowIndex++;
-						continue;
-					} else {
-						infoPromotionDetailError.add(convertDetailRowToCellBean(row,Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.import.new.structure", rowIndex+2)));
-						return;
-					}
-				}
-				if(isExtraRow(row)) {
-					extraRowLevel = true;
-					rowIndex++;
-					continue;
-				}
-				if(!isChildHeader(row)) {
-					infoPromotionDetailError.add(convertDetailRowToCellBean(row,Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.import.new.structure", rowIndex+2)));
-					return;
-				} else {
-					if(extraRowLevel)  {
-						infoPromotionDetailError.add(convertDetailRowToCellBean(row,Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.import.new.structure", rowIndex+2)));
-						return;
-					}
-					childLevel = true;					
-				}
-				boolean hasChild = false;
-				rowIndex++;
-				while(rowIndex<len) {
-					row = infoPromotionDetail.get(rowIndex);
-					if(isChildContent(row)) {
-						hasChild = true;
-					} else {
-						break;
-					}
-					rowIndex++;
-				}
-				if(!hasChild) {
-					infoPromotionDetailError.add(convertDetailRowToCellBean(row,Configuration.getResourceString(ConstantManager.VI_LANGUAGE, "ctkm.import.new.structure", rowIndex+1)));
-					return;
-				}				
-			}
-		}
-	}
-	
-	private boolean isParentHeader(List<String> row) {
-		//Kiem tra header cua Muc cha: la muc cha, khong phai muc con, khong co san pham
-		if(!row.get(4).isEmpty()&&row.get(5).isEmpty()&&row.get(6).isEmpty()) {
-			return true;
-		}
-		return false;
-	}
-	
-	private boolean isParentContent(List<String> row) {
-		//Kiem tra header cua Muc cha: la muc cha, khong phai muc con, co san pham
-		if(!row.get(4).isEmpty()&&row.get(5).isEmpty()&&!row.get(6).isEmpty()) {
-			return true;
-		}
-		return false;
-	}
-	
-	private boolean isChildHeader(List<String> row) {
-		//Kiem tra header cua Muc cha: khong phai muc cha,la muc con, khong co san pham
-		if(row.get(4).isEmpty()&&!row.get(5).isEmpty()&&row.get(6).isEmpty()) {
-			return true;
-		}
-		return false;
-	}
-	
-	private boolean isChildContent(List<String> row) {
-		//Kiem tra header cua Muc cha: khong phai cha, khong phai con, khong co san pham
-		if(row.get(4).isEmpty()&&!row.get(5).isEmpty()&&!row.get(6).isEmpty()) {
-			return true;
-		}
-		return false;
-	}
-	
-	private boolean isExtraRow(List<String> row) {
-		//Kiem tra header cua Muc cha: khong phai cha, khong phai con, khong co san pham
-		if(row.get(4).isEmpty()&&row.get(5).isEmpty()&&row.get(6).isEmpty()) {
-			return true;
-		}
-		return false;
-	}
-	
-	private CellBean convertDetailRowToCellBean(List<String> rowData,String errMsg) {
-		CellBean cb =  new CellBean();
-		cb.setContent1(rowData.get(0));
-		cb.setContent2(rowData.get(1));
-		cb.setContent3(rowData.get(2));
-		cb.setContent4(rowData.get(3));
-		cb.setContent5(rowData.get(4));
-		cb.setContent6(rowData.get(5));
-		cb.setContent7(rowData.get(6));
-		cb.setContent8(rowData.get(7));
-		cb.setContent9(rowData.get(8));
-		cb.setContent10(rowData.get(9));
-		cb.setContent11(rowData.get(10));
-		cb.setContent12(rowData.get(11));    
-		cb.setContent13(rowData.get(12));
-		cb.setContent14(rowData.get(13));
-		cb.setContent15(rowData.get(14));
-		cb.setContent16(rowData.get(15));
-		cb.setContent17(rowData.get(16));
-		cb.setErrMsg(errMsg);
-		return cb;
-	}
-	
-	private List<PromotionImportVO> convertDataImportExcelPromotionNew (List<List<String>> infoPromotions, List<List<String>> infoPromotionDetails, List<List<String>> infoPromotionShops, List<CellBean> infoPromotionError, List<CellBean> infoPromotionDetailError, List<CellBean> infoPromotionShopError) {
-		List<PromotionImportVO> promotionImportVOs = new ArrayList<>();
-		boolean isExist = false;
-		final List<String> UNIT = Arrays.asList(R.getResource("ctkm.import.new.le"), R.getResource("ctkm.import.new.thung"));
-		final List<String> ALLOWED_RECURSIVE_TYPES = Arrays.asList("ZV02","ZV03","ZV05","ZV06","ZV08","ZV09","ZV11","ZV12","ZV13","ZV14","ZV15","ZV16","ZV17","ZV18","ZV20","ZV21","ZV23","ZV24");
-		final List<String> ALLOWED_MUTIPLE_TYPES = Arrays.asList("ZV02","ZV03","ZV05","ZV06","ZV08","ZV09","ZV11","ZV12","ZV14","ZV15","ZV17","ZV18","ZV20","ZV21","ZV23","ZV24");
-		final List<String> FREE_ITEM_TYPES = Arrays.asList("ZV03","ZV06","ZV09","ZV12","ZV15","ZV18","ZV21","ZV24");
-		
-		//Sheet CTKM
-		for(List<String> infoPromotion:infoPromotions) {
-			// Danh sach CTKM
-			PromotionImportVO  promotionImportVO = new PromotionImportVO();
-			//Danh sach don vi tham gia
-			List<PromotionImportShopVO> listPromotionImportShop = new ArrayList<>();
-						
-			for(PromotionImportVO promotionImportNewVOcheck: promotionImportVOs) {
-				if(infoPromotion.get(0).equals(promotionImportNewVOcheck.getPromotionCode())){
-					promotionImportVO = promotionImportNewVOcheck;
-					isExist = true;
-					break;
-				}
-			}
-			
-			// ghi de lai cac attribute cu
-			if(!isExist) {
-				promotionImportVOs.add(promotionImportVO);
-			}
-			isExist = false;				
-			promotionImportVO.setPromotionCode(!StringUtil.isNullOrEmpty(infoPromotion.get(0)) ? infoPromotion.get(0).toUpperCase() : null);
-			promotionImportVO.setPromotionName(!StringUtil.isNullOrEmpty(infoPromotion.get(1)) ? infoPromotion.get(1) : null);
-			promotionImportVO.setVersion(!StringUtil.isNullOrEmpty(infoPromotion.get(2)) ? infoPromotion.get(2) : null);
-			promotionImportVO.setType(!StringUtil.isNullOrEmpty(infoPromotion.get(3)) ? infoPromotion.get(3).toUpperCase() : null);
-			promotionImportVO.setFromDate(!StringUtil.isNullOrEmpty(infoPromotion.get(4)) ? DateUtil.parse(infoPromotion.get(4), DateUtil.DATE_FORMAT_STR) : null);
-			promotionImportVO.setToDate(!StringUtil.isNullOrEmpty(infoPromotion.get(5)) ? DateUtil.parse(infoPromotion.get(5), DateUtil.DATE_FORMAT_STR) : null);
-			promotionImportVO.setNotice(!StringUtil.isNullOrEmpty(infoPromotion.get(6)) ? infoPromotion.get(6).toUpperCase() : null);
-			promotionImportVO.setDescriptionProduct(!StringUtil.isNullOrEmpty(infoPromotion.get(7)) ? infoPromotion.get(7) : null);
-			promotionImportVO.setDescription(!StringUtil.isNullOrEmpty(infoPromotion.get(8)) ? infoPromotion.get(8) : null);
-			
-			if (!StringUtil.isNullOrEmpty(infoPromotion.get(9))&&"1".equals(infoPromotion.get(9))&&ALLOWED_MUTIPLE_TYPES.contains(promotionImportVO.getType())) {
-				promotionImportVO.setMultiple(true);
-			} else {
-				promotionImportVO.setMultiple(false);
-			}
-			if (!StringUtil.isNullOrEmpty(infoPromotion.get(10))&&"1".equals(infoPromotion.get(10))&&ALLOWED_RECURSIVE_TYPES.contains(promotionImportVO.getType())) {
-				promotionImportVO.setRecursive(true);
-			} else {
-				promotionImportVO.setRecursive(false);
-			}
-			
-			promotionImportVO.setRewardType(!StringUtil.isNullOrEmpty(infoPromotion.get(11)) ? Integer.parseInt(infoPromotion.get(11)) : null);
-			promotionImportVO.setApplyFromDate(!StringUtil.isNullOrEmpty(infoPromotion.get(12)) ? DateUtil.parse(infoPromotion.get(12), DateUtil.DATE_FORMAT_STR) : null);
-			promotionImportVO.setApplyToDate(!StringUtil.isNullOrEmpty(infoPromotion.get(13)) ? DateUtil.parse(infoPromotion.get(13), DateUtil.DATE_FORMAT_STR) : null);
-			promotionImportVO.setDiscountType(!StringUtil.isNullOrEmpty(infoPromotion.get(14)) ? Integer.parseInt(infoPromotion.get(14)) : 0);
-			
-			// xu ly cho danh sach đon vi tham gia
-			for(List<String> infoPromotionShop : infoPromotionShops) {
-				if(infoPromotionShop.get(0).equalsIgnoreCase(promotionImportVO.getPromotionCode())) {
-					PromotionImportShopVO promotionImportShopVO = new PromotionImportShopVO();
-					int index = checkDupShopForPromotion(listPromotionImportShop, infoPromotionShop.get(1));
-					if (index != -1) {
-						promotionImportShopVO = listPromotionImportShop.get(index);
-					}
-					
-					promotionImportShopVO.setShopCode(!StringUtil.isNullOrEmpty(infoPromotionShop.get(1)) ? infoPromotionShop.get(1) : null);
-					promotionImportShopVO.setQuantity(!StringUtil.isNullOrEmpty(infoPromotionShop.get(2)) ? Integer.parseInt(infoPromotionShop.get(2)) : null);
-					promotionImportShopVO.setAmount(!StringUtil.isNullOrEmpty(infoPromotionShop.get(3)) ? new BigDecimal(infoPromotionShop.get(3)) : null);
-					promotionImportShopVO.setNum(!StringUtil.isNullOrEmpty(infoPromotionShop.get(4)) ? new BigDecimal(infoPromotionShop.get(4)) : null);			
-					listPromotionImportShop.add(promotionImportShopVO);
-				}
-			}
-			promotionImportVO.setShops(listPromotionImportShop);
-			
-			// danh sach co cau
-			for(List<String> infoPromotionDetail : infoPromotionDetails) {
-				if(infoPromotionDetail.get(0).equalsIgnoreCase(promotionImportVO.getPromotionCode())) {
-					if(promotionImportVO.getProductGroups() == null) {
-						promotionImportVO.setProductGroups(new ArrayList<PromotionImportGroupVO>());
-					}
-					//tao nhóm cho CTKM
-					PromotionImportGroupVO groupNewVO = new PromotionImportGroupVO();
-					for(int i = 0; i < promotionImportVO.getProductGroups().size(); i++) {
-						if(promotionImportVO.getProductGroups().get(i).getGroupCode().equals(infoPromotionDetail.get(2))) {
-							groupNewVO = promotionImportVO.getProductGroups().get(i);
-							isExist = true;
-							break;
-						}
-					}
-					if(!isExist) {
-						promotionImportVO.getProductGroups().add(groupNewVO);
-					}
-					isExist = false;
-					//set thong tin nhoms
-					groupNewVO.setGroupCode(infoPromotionDetail.get(2));
-					groupNewVO.setGroupName(groupNewVO.getGroupCode());
-					groupNewVO.setMultiple(promotionImportVO.isMultiple());
-					groupNewVO.setRecursive(promotionImportVO.isRecursive());
-					if(isParentHeader(infoPromotionDetail))
-					{
-						groupNewVO.setUnit(getUnitForPromotionNew(UNIT,infoPromotionDetail.get(8)));
-					}
-					// tao muc cho CTKM(Mua - KM)
-					List<PromotionImportGroupLevelVO> groupLevelBuys = new ArrayList<>();
-					List<PromotionImportGroupLevelVO> groupLevelKMs = new ArrayList<>();					
-					if(groupNewVO.getGroupLevelBuys() == null) {
-						groupNewVO.setGroupLevelBuys(groupLevelBuys);
-						groupNewVO.setGroupLevelKMs(groupLevelKMs);
-					} else {
-						groupLevelBuys = groupNewVO.getGroupLevelBuys();
-						groupLevelKMs = groupNewVO.getGroupLevelKMs();
-					}
-					PromotionImportGroupLevelVO groupLevelVOMua = new PromotionImportGroupLevelVO();
-					PromotionImportGroupLevelVO groupLevelVOKM = new PromotionImportGroupLevelVO();
-					for(int i = 0; i < groupNewVO.getGroupLevelBuys().size(); i++) {
-						if(groupNewVO.getGroupLevelBuys().get(i).getGroupLevelCode().equals(infoPromotionDetail.get(3))) {
-							groupLevelVOMua = groupNewVO.getGroupLevelBuys().get(i);
-							groupLevelVOKM = groupNewVO.getGroupLevelKMs().get(i);
-							isExist = true;
-							break;
-						}
-					}
-					
-					if(!isExist) {
-						groupLevelBuys.add(groupLevelVOMua);
-						groupLevelKMs.add(groupLevelVOKM);
-					}
-					isExist = false;
-					// set thong tin chung cho muc
-					groupLevelVOMua.setGroupLevelCode(infoPromotionDetail.get(3));
-					groupLevelVOKM.setGroupLevelCode(infoPromotionDetail.get(3));
-					if(isParentHeader(infoPromotionDetail)) {
-						groupLevelVOMua.setQuantity(StringUtil.isNullOrEmpty(infoPromotionDetail.get(7))? null:Integer.parseInt(infoPromotionDetail.get(7)));
-						groupLevelVOMua.setAmount(StringUtil.isNullOrEmpty(infoPromotionDetail.get(9))? null:new BigDecimal(infoPromotionDetail.get(9)));
-						groupLevelVOMua.setUnit(getUnitForPromotionNew(UNIT, infoPromotionDetail.get(8)));
-						
-						groupLevelVOKM.setQuantity(StringUtil.isNullOrEmpty(infoPromotionDetail.get(14))? null:Integer.parseInt(infoPromotionDetail.get(14)));
-						groupLevelVOKM.setAmount(StringUtil.isNullOrEmpty(infoPromotionDetail.get(11))? null:new BigDecimal(infoPromotionDetail.get(11)));
-						groupLevelVOKM.setPercent(StringUtil.isNullOrEmpty(infoPromotionDetail.get(12))? null:Float.parseFloat((infoPromotionDetail.get(12))));
-						groupLevelVOKM.setUnit(1);
-					}
-					//detail cho muc mua
-					List<PromotionImportGroupLevelProductVO> detailVOMuas = new ArrayList<>();
-					if(groupLevelVOMua.getGroupLevelProduct() != null) {
-						detailVOMuas = groupLevelVOMua.getGroupLevelProduct();
-					} else {
-						groupLevelVOMua.setGroupLevelProduct(detailVOMuas);
-					}
-					if(isParentContent(infoPromotionDetail)) {
-						// tao detail muc mua
-						PromotionImportGroupLevelProductVO detailVOMua = new PromotionImportGroupLevelProductVO();
-						for(int i = 0; i < detailVOMuas.size(); i++) {
-							if(detailVOMuas.get(i).getProductCode().equals(infoPromotionDetail.get(6))) {
-								detailVOMua = detailVOMuas.get(i);
-								isExist = true;
-								break;
-							}
-						}						
-						if(!isExist) {
-							detailVOMuas.add(detailVOMua);
-						}						
-						isExist = false;
-						//set du lieu cho detail muc mua
-						detailVOMua.setProductCode(infoPromotionDetail.get(6));
-						detailVOMua.setRequired("X".equalsIgnoreCase(infoPromotionDetail.get(10))? true:false);
-						detailVOMua.setQuantity(StringUtil.isNullOrEmpty(infoPromotionDetail.get(7))? null:Integer.parseInt(infoPromotionDetail.get(7)));
-						detailVOMua.setAmount(StringUtil.isNullOrEmpty(infoPromotionDetail.get(9))? null:new BigDecimal(infoPromotionDetail.get(9)));
-						
-					}
-					//tao sub-level Mua
-					List<PromotionImportSubGroupLevelProductVO> subGroupLevelProducts = new ArrayList<>();
-					if(groupLevelVOMua.getSubGroupLevelProduct() != null) {
-						subGroupLevelProducts = groupLevelVOMua.getSubGroupLevelProduct();
-					} else {
-						groupLevelVOMua.setSubGroupLevelProduct(subGroupLevelProducts);
-					}
-					PromotionImportSubGroupLevelProductVO subGroupLevelProduct = new PromotionImportSubGroupLevelProductVO();
-					if(isChildHeader(infoPromotionDetail))
-					{
-						subGroupLevelProduct.setQuantity(StringUtil.isNullOrEmpty(infoPromotionDetail.get(7))? null:Integer.parseInt(infoPromotionDetail.get(7)));
-						subGroupLevelProduct.setAmount(StringUtil.isNullOrEmpty(infoPromotionDetail.get(9))? null:new BigDecimal(infoPromotionDetail.get(9)));
-						subGroupLevelProducts.add(subGroupLevelProduct);
-					}
-					//detail sub-level  Mua
-					List<PromotionImportSubGroupLevelProductDetailVO> detailVOSubLevelDetails = new ArrayList<>();
-					int lastIndexofSubLevelProducts = subGroupLevelProducts.size() - 1;
-					if(lastIndexofSubLevelProducts>=0)
-					{
-						if(subGroupLevelProducts.get(lastIndexofSubLevelProducts).getSubGroupLevelProductDetail() != null) {
-							detailVOSubLevelDetails = subGroupLevelProducts.get(lastIndexofSubLevelProducts).getSubGroupLevelProductDetail();
-						} else {
-							subGroupLevelProducts.get(lastIndexofSubLevelProducts).setSubGroupLevelProductDetail(detailVOSubLevelDetails);
-						}
-					}
-					if(isChildContent(infoPromotionDetail))
-					{
-						// tao detail muc con 
-						PromotionImportSubGroupLevelProductDetailVO detailVOSubLevel = new PromotionImportSubGroupLevelProductDetailVO();
-						for(int i = 0; i < detailVOSubLevelDetails.size(); i++) {
-							if(detailVOSubLevelDetails.get(i).getProductCode().equals(infoPromotionDetail.get(6))) {
-								detailVOSubLevel = detailVOSubLevelDetails.get(i);
-								isExist = true;
-								break;
-							}
-						}						
-						if(!isExist) {
-							detailVOSubLevelDetails.add(detailVOSubLevel);
-						}						
-						isExist = false;
-						//set du lieu cho detail muc mua
-						detailVOSubLevel.setProductCode(infoPromotionDetail.get(6));
-						detailVOSubLevel.setRequired("X".equalsIgnoreCase(infoPromotionDetail.get(10))? true:false);
-					}
-					
-					if(FREE_ITEM_TYPES.contains(promotionImportVO.getType()))
-					{
-					//detail cho muc KM
-					List<PromotionImportGroupLevelProductVO> detailVOKMs = new ArrayList<>();
-					if(groupLevelVOKM.getGroupLevelProduct() != null) {
-						detailVOKMs = groupLevelVOKM.getGroupLevelProduct();
-					} else {
-						groupLevelVOKM.setGroupLevelProduct(detailVOKMs);
-					}
-					// tao detail muc KM
-					PromotionImportGroupLevelProductVO detailVOKM = new PromotionImportGroupLevelProductVO();
-					isExist = false;
-					for(int i = 0; i < detailVOKMs.size(); i++) {
-						if(detailVOKMs.get(i).getProductCode().equals(infoPromotionDetail.get(13))) {
-							detailVOKM = detailVOKMs.get(i);
-							isExist = true;
-							break;
-						}
-					}						
-											
-					//set du lieu cho detail muc KM
-					if(!infoPromotionDetail.get(13).isEmpty())	
-					{
-						if(!isExist) {
-							detailVOKMs.add(detailVOKM);
-						}
-						detailVOKM.setProductCode(infoPromotionDetail.get(13));
-						detailVOKM.setRequired("X".equalsIgnoreCase(infoPromotionDetail.get(16))? true:false);
-						detailVOKM.setQuantity(StringUtil.isNullOrEmpty(infoPromotionDetail.get(14))? null:Integer.parseInt(infoPromotionDetail.get(15)));			
-						detailVOKM.setAmount(StringUtil.isNullOrEmpty(infoPromotionDetail.get(11))? null:new BigDecimal(infoPromotionDetail.get(11)));	
-						detailVOKM.setPercent(StringUtil.isNullOrEmpty(infoPromotionDetail.get(12))? null:Integer.parseInt(infoPromotionDetail.get(12)));	
-					}
-				}
-				else
-				{
-					if(isParentHeader(infoPromotionDetail))
-					{
-						groupLevelVOKM.setAmount(StringUtil.isNullOrEmpty(infoPromotionDetail.get(11))? null:new BigDecimal(infoPromotionDetail.get(11)));	
-						groupLevelVOKM.setPercent(StringUtil.isNullOrEmpty(infoPromotionDetail.get(12))? null:Float.parseFloat(infoPromotionDetail.get(12)));
-					}
-				}
-			  }
-			}
-		  }
-		return promotionImportVOs;
-	}
-	
-	private void resetProgramMultiple(PromotionImportVO importNewVO) {
-		if(importNewVO.isMultiple()) {
-			importNewVO.setMultiple(false);
-		}
-	}
-	
-	private void resetProgramRecursive(PromotionImportVO importNewVO) {
-		if(importNewVO.isRecursive()) {
-			importNewVO.setRecursive(false);
-		}
-	}
-	
-	private void resetProgramDiscountType(PromotionImportVO importNewVO) {
-		importNewVO.setDiscountType(0);
-	}
-	
-	private void resetProgramVoucherTime(PromotionImportVO importNewVO) {
-		importNewVO.setApplyFromDate(null);
-		importNewVO.setApplyToDate(null);
-	}
-	
-	
-	/**
-	 * validate nhóm KM: conditonType
-	 * 	1: tiền
-	 * 	2: số lượng(sản phẩm)
-	 * 	3: %
-	 * validate nhóm điều kiện đăng ký cha: conditonType
-	 * 	1: tiền
-	 * 	2: số lượng(sản phẩm)
-	 * validate nhóm điều kiện đăng ký con: conditonType
-	 * 	1: tiền
-	 * 	2: số lượng(sản phẩm)
-	 * */
-	
-	final Integer CONDITION_TYPE_AMOUNT = 1;
-	final Integer CONDITION_TYPE_QUANTITY = 2;
-	final Integer CONDITION_TYPE_PERCENT = 3;
-	
-	private String validateVoucher(PromotionImportVO importNewVO) {
-		if(((Integer) 2).equals(importNewVO.getRewardType()) && Arrays.asList(ConstantManager.getSaleOrderBillPromotionVoucherTypeCode()).contains(importNewVO.getType())) {
-			if(importNewVO.getApplyFromDate() == null) {
-				importNewVO.setMessageError(R.getResource("catalog.promotion.import.column.null", R.getResource("imp.epx.tuyen.clmn.tuNgay.traThuong")));
-				return R.getResource("catalog.promotion.import.column.null", R.getResource("imp.epx.tuyen.clmn.tuNgay.traThuong"));
-			}
-			if(DateUtil.compareDateWithoutTime(importNewVO.getApplyFromDate(), DateUtil.now()) < 0) {
-				importNewVO.setMessageError(R.getResource("common.date.greater.currentdate", R.getResource("imp.epx.tuyen.clmn.tuNgay.traThuong")));
-				return R.getResource("common.date.greater.currentdate", R.getResource("imp.epx.tuyen.clmn.tuNgay.traThuong"));
-			}
-			
-			if(importNewVO.getApplyToDate() != null && DateUtil.compareDateWithoutTime(importNewVO.getApplyFromDate(), importNewVO.getApplyToDate()) == 1) {
-				importNewVO.setMessageError(R.getResource("common.compare.error.less.or.equal.tow.param", R.getResource("imp.epx.tuyen.clmn.tuNgay.traThuong"), R.getResource("imp.epx.tuyen.clmn.denNgay.traThuong")));
-				return R.getResource("common.compare.error.less.or.equal.tow.param", R.getResource("imp.epx.tuyen.clmn.tuNgay.traThuong"), R.getResource("imp.epx.tuyen.clmn.denNgay.traThuong"));
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionGroupLevelUnit(PromotionImportVO importNewVO, PromotionImportGroupVO groupNewVO) {
-		if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-			int size = groupNewVO.getGroupLevelBuys().size();
-			for(int i = 0; i < (size - 1); i++) {
-				PromotionImportGroupLevelVO groupLevelBuyEx1 = groupNewVO.getGroupLevelBuys().get(i);
-				PromotionImportGroupLevelVO groupLevelBuyEx2 = groupNewVO.getGroupLevelBuys().get(i + 1);
-				if(groupLevelBuyEx1.getUnit() != groupLevelBuyEx2.getUnit()) {
-					groupNewVO.setMessageError(R.getResource("ctkm.import.new.condition.level.dvt", importNewVO.getPromotionCode(), groupNewVO.getGroupCode()));
-					return R.getResource("ctkm.import.new.condition.level.dvt", importNewVO.getPromotionCode(), groupNewVO.getGroupCode());
-				}
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionMultiGroup(PromotionImportVO importNewVO) {
-		if(importNewVO.getProductGroups() != null && importNewVO.getProductGroups().size() > 0) {
-			if(importNewVO.getProductGroups().size() > 1 && !PromotionProgramMgr.PROMOTION_TYPE_MULTI_GROUPS.contains(importNewVO.getType())) {
-				importNewVO.setMessageError(R.getResource("ctkm.import.new.product.group.multi", importNewVO.getType()));
-				return R.getResource("ctkm.import.new.product.group.multi", importNewVO.getType());
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionMultiGroupLevelProduct(PromotionImportVO importNewVO, PromotionImportGroupVO groupNewVO) {
-		if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-			int size = groupNewVO.getGroupLevelBuys().size();
-			for(int i = 0; i < size; i++) {
-				PromotionImportGroupLevelVO groupLevelBuy = groupNewVO.getGroupLevelBuys().get(i);
-				if(groupLevelBuy.getGroupLevelProduct() == null || groupLevelBuy.getGroupLevelProduct().size() == 0) {
-					groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.line.product.null", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-					return R.getResource("ctkm.import.new.condition.line.product.null", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-				}
-				
-				if(groupLevelBuy.getGroupLevelProduct().size() > 1) {
-					groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.line.multi.product.level", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-					return R.getResource("ctkm.import.new.condition.line.multi.product.level", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-				}
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionProductIsNotHomogeneous (PromotionImportVO importNewVO, PromotionImportGroupVO groupNewVO) {
-		if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-			int size = groupNewVO.getGroupLevelBuys().size();
-			List<String> rootProductCodes = new ArrayList<>();
-			if(groupNewVO.getGroupLevelBuys().get(0).getGroupLevelProduct() != null && groupNewVO.getGroupLevelBuys().get(0).getGroupLevelProduct().size() > 0) {
-				for(PromotionImportGroupLevelProductVO groupLevelProduct : groupNewVO.getGroupLevelBuys().get(0).getGroupLevelProduct()) {
-					if (rootProductCodes.indexOf(groupLevelProduct.getProductCode()) == -1) {
-						rootProductCodes.add(groupLevelProduct.getProductCode());
-					}
-				}						
-			}
-			
-			for(int i = 0; i < (size - 1); i++) {
-				PromotionImportGroupLevelVO groupLevelBuyEx1 = groupNewVO.getGroupLevelBuys().get(i);						
-				if(groupLevelBuyEx1.getGroupLevelProduct() == null || groupLevelBuyEx1.getGroupLevelProduct().size() == 0) {
-					groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.product.not.found", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode()));
-					return R.getResource("ctkm.import.new.condition.product.not.found", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode());
-				}
-				List<String> lstProductCode = new ArrayList<>();
-				for(PromotionImportGroupLevelProductVO groupLevelProduct : groupLevelBuyEx1.getGroupLevelProduct()) {
-					if (lstProductCode.indexOf(groupLevelProduct.getProductCode()) == -1) {
-						lstProductCode.add(groupLevelProduct.getProductCode());
-					} else {
-						groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.product.is.duplicate", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode()));
-						return R.getResource("ctkm.import.new.condition.product.is.duplicate", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode());
-					}
-				}
-				
-				if(lstProductCode.size() != rootProductCodes.size()) {
-					groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode()));
-					return R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode());
-				}
-
-				for(PromotionImportGroupLevelProductVO groupLevelProduct : groupLevelBuyEx1.getGroupLevelProduct()) {
-					if(rootProductCodes.indexOf(groupLevelProduct.getProductCode()) == -1) {
-						groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode()));
-						return R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode());
-					}
-				}						
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionGroupLevelConditionQuantityOrAmount(PromotionImportVO importNewVO, Integer conditionType, PromotionImportGroupVO groupNewVO) {
-		int size = groupNewVO.getGroupLevelBuys().size();
-		for(int i = 0; i < (size - 1); i++) {
-			for(int j = i+1; j < size; j++) {
-				PromotionImportGroupLevelVO groupLevelBuyEx1 = groupNewVO.getGroupLevelBuys().get(i);
-				PromotionImportGroupLevelVO groupLevelBuyEx2 = groupNewVO.getGroupLevelBuys().get(j);
-				if(CONDITION_TYPE_AMOUNT.equals(conditionType)) {
-					if(groupLevelBuyEx1.getAmount().equals(groupLevelBuyEx2.getAmount())) {
-						groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.doc.group.level.amount.duplicate", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode()));
-						return R.getResource("ctkm.import.new.condition.doc.group.level.amount.duplicate", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode());
-					}
-				} else {
-					if(groupLevelBuyEx1.getQuantity().equals(groupLevelBuyEx2.getQuantity())) {
-						groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.doc.group.level.quantity.duplicate", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode()));
-						return R.getResource("ctkm.import.new.condition.doc.group.level.quantity.duplicate", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode());
-					}
-				}
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionQuantityOfGroupLevel (PromotionImportVO importNewVO, PromotionImportGroupVO groupNewVO) {
-		final List<String> PROMOTION_TYPE_GROUP_QUANTITY = Arrays.asList(PromotionType.ZV07.getValue(), PromotionType.ZV08.getValue(), PromotionType.ZV09.getValue());
-		if(PROMOTION_TYPE_GROUP_QUANTITY.contains(importNewVO.getType()) && groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-			int size = groupNewVO.getGroupLevelBuys().size();
-			Map<String, List<Integer>> mProductByLevel = new HashMap<>();
-			for(int i = 0; i < (size - 1); i++) {
-				PromotionImportGroupLevelVO groupLevelBuy = groupNewVO.getGroupLevelBuys().get(i);
-				
-				if(groupLevelBuy.getGroupLevelProduct() != null && groupLevelBuy.getGroupLevelProduct().size() > 0) {
-					for(PromotionImportGroupLevelProductVO product : groupLevelBuy.getGroupLevelProduct()) {
-						if(!mProductByLevel.containsKey(product.getProductCode())) {
-							mProductByLevel.put(product.getProductCode(), new ArrayList<Integer>());
-						}
-						
-						mProductByLevel.get(product.getProductCode()).add(product.getQuantity());
-					}
-				}
-			}
-			
-			for(Map.Entry<String, List<Integer>> productInfo : mProductByLevel.entrySet()) {
-				List<Integer> quantitys = productInfo.getValue();
-				for(int i = 0; i < (quantitys.size()-1); i++) {
-					if(quantitys.get(i) != null && quantitys.get(i).compareTo(0) > 0) {
-						for(int j = i+1; j < quantitys.size(); j++) {
-							if(quantitys.get(j) == null || quantitys.get(j).compareTo(0) <= 0) {
-								continue;
-							}
-							
-							if(quantitys.get(i).equals(quantitys.get(j))) {
-								groupNewVO.setMessageError(R.getResource("ctkm.import.new.condition.group.quantity.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode()));
-								return R.getResource("ctkm.import.new.condition.group.quantity.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode());
-							}
-						}
-					}
-				}
-				
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionAmountOfGroupLevel (PromotionImportVO importNewVO, PromotionImportGroupVO groupNewVO) {
-		final List<String> PROMOTION_TYPE_GROUP_AMOUNT = Arrays.asList(PromotionType.ZV10.getValue(), PromotionType.ZV11.getValue(), PromotionType.ZV12.getValue());
-		if(PROMOTION_TYPE_GROUP_AMOUNT.contains(importNewVO.getType()) && groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-			int size = groupNewVO.getGroupLevelBuys().size();
-			Map<String, List<BigDecimal>> mProductByLevel = new HashMap<>();
-			for(int i = 0; i < (size - 1); i++) {
-				PromotionImportGroupLevelVO groupLevelBuy = groupNewVO.getGroupLevelBuys().get(i);
-				
-				if(groupLevelBuy.getGroupLevelProduct() != null && groupLevelBuy.getGroupLevelProduct().size() > 0) {
-					for(PromotionImportGroupLevelProductVO product : groupLevelBuy.getGroupLevelProduct()) {
-						if(!mProductByLevel.containsKey(product.getProductCode())) {
-							mProductByLevel.put(product.getProductCode(), new ArrayList<BigDecimal>());
-						}
-						
-						mProductByLevel.get(product.getProductCode()).add(product.getAmount());
-					}
-				}
-			}
-			
-			for(Map.Entry<String, List<BigDecimal>> productInfo : mProductByLevel.entrySet()) {
-				List<BigDecimal> quantitys = productInfo.getValue();
-				for(int i = 0; i < (quantitys.size()-1); i++) {
-					if(quantitys.get(i) != null && quantitys.get(i).compareTo(BigDecimal.ZERO) > 0) {
-						for(int j = i+1; j < quantitys.size(); j++) {
-							if(quantitys.get(j) == null || quantitys.get(j).compareTo(BigDecimal.ZERO) <= 0) {
-								continue;
-							}
-							
-							if(quantitys.get(i).equals(quantitys.get(j))) {
-								groupNewVO.setMessageError(R.getResource("ctkm.import.new.condition.group.amount.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode()));
-								return R.getResource("ctkm.import.new.condition.group.amount.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode());
-							}
-						}
-					}
-				}
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionLine(PromotionImportVO importNewVO, Integer conditionType) {
-		StringBuilder sbMessage = new StringBuilder();
-		if(importNewVO.getProductGroups() != null && importNewVO.getProductGroups().size() > 0) {
-			sbMessage.append(validatePromotionMultiGroup(importNewVO));
-			if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-				return sbMessage.toString();
-			}
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {
-				if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-					sbMessage.append(validatePromotionMultiGroupLevelProduct(importNewVO, groupNewVO));
-					if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-						return sbMessage.toString();
-					}
-					sbMessage.append(validatePromotionGroupLevelUnit(importNewVO, groupNewVO));
-					if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-						return sbMessage.toString();
-					}
-					
-					int size = groupNewVO.getGroupLevelBuys().size();
-					for(int i = 0; i < size; i++) {
-						PromotionImportGroupLevelVO groupLevelBuy = groupNewVO.getGroupLevelBuys().get(i);
-						if(CONDITION_TYPE_AMOUNT.equals(conditionType)) {
-							if(groupLevelBuy.getGroupLevelProduct().get(0).getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-								groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.line.product.amount.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.line.product.amount.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}							
-						} else {
-							if(groupLevelBuy.getGroupLevelProduct().get(0).getQuantity().compareTo(0) <= 0) {
-								groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.line.product.quantity.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.line.product.quantity.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-						}
-						
-						if(groupLevelBuy.getSubGroupLevelProduct() != null && groupLevelBuy.getSubGroupLevelProduct().size() > 0) {
-							importNewVO.setMessageError(R.getResource("ctkm.import.new.condition.doc.sub.condition", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-							return R.getResource("ctkm.import.new.condition.doc.sub.condition", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-						}
-						
-						String productCodeEx1 = groupLevelBuy.getGroupLevelProduct().get(0).getProductCode();
-						String productCodeEx2 = groupLevelBuy.getGroupLevelProduct().get(0).getProductCode();
-						if(!groupLevelBuy.getGroupLevelProduct().get(0).isRequired()) {
-							groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.line.product.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), productCodeEx1));
-							return R.getResource("ctkm.import.new.condition.line.product.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), productCodeEx1);
-						}
-						if((i +1) < size) {
-							productCodeEx2 = groupNewVO.getGroupLevelBuys().get(i+1).getGroupLevelProduct().get(0).getProductCode();
-						}
-						if(!productCodeEx1.equals(productCodeEx2)) {
-							groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-							return R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-						}
-					}
-				}
-			}
-		}
-		return sbMessage.toString();
-	}	
-	
-	private String validatePromotionGroup(PromotionImportVO importNewVO, Integer conditionType) {
-		StringBuilder sbMessage = new StringBuilder();
-		final List<String> PROMOTION_TYPE_GROUP =  Arrays.asList(PromotionType.ZV07.getValue(), PromotionType.ZV10.getValue());
-		if(importNewVO.getProductGroups() != null && importNewVO.getProductGroups().size() > 0) {
-			sbMessage.append(validatePromotionMultiGroup(importNewVO));
-			if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-				return sbMessage.toString();
-			}
-			
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {
-				sbMessage.append(validatePromotionProductIsNotHomogeneous(importNewVO, groupNewVO));
-				if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-					return sbMessage.toString();
-				}
-				
-				sbMessage.append(validatePromotionQuantityOfGroupLevel(importNewVO, groupNewVO));
-				if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-					return sbMessage.toString();
-				}
-				
-				sbMessage.append(validatePromotionAmountOfGroupLevel(importNewVO, groupNewVO));
-				if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-					return sbMessage.toString();
-				}
-				
-				if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-					sbMessage.append(validatePromotionGroupLevelUnit(importNewVO, groupNewVO));
-					if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-						return sbMessage.toString();
-					}
-					
-					int size = groupNewVO.getGroupLevelBuys().size();
-					for(int i = 0; i < size; i++) {
-						PromotionImportGroupLevelVO groupLevelBuy = groupNewVO.getGroupLevelBuys().get(i);
-						if(groupLevelBuy.getGroupLevelProduct() == null || groupLevelBuy.getGroupLevelProduct().size() <= 0) {
-							groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.line.multi.product", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-							return R.getResource("ctkm.import.new.condition.line.multi.product", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-						}
-						
-						Integer totalQuantity = 0;
-						BigDecimal totalAmount = BigDecimal.ZERO;
-						for(PromotionImportGroupLevelProductVO levelProduct : groupLevelBuy.getGroupLevelProduct()) {
-							if(CONDITION_TYPE_AMOUNT.equals(conditionType)) {
-								if(levelProduct.getAmount() != null && levelProduct.getAmount().compareTo(BigDecimal.ZERO) < 0) {
-									groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.group.product.amount.invalid", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.condition.group.product.amount.invalid", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-								}
-							} else {
-								if(levelProduct.getQuantity() != null && levelProduct.getQuantity().compareTo(0) < 0) {
-									groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.group.product.quantity.invalid", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.condition.group.product.quantity.invalid", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-								}
-							}
-							
-							Integer quantity = levelProduct.getQuantity()== null? 0: levelProduct.getQuantity();
-							BigDecimal amount = levelProduct.getAmount()== null? BigDecimal.ZERO: levelProduct.getAmount();
-							totalQuantity += quantity;
-							totalAmount = totalAmount.add(amount);
-							
-							if(!PROMOTION_TYPE_GROUP.contains(importNewVO.getType())) {
-								if(CONDITION_TYPE_AMOUNT.equals(conditionType)) {
-									if(levelProduct.getAmount() != null && !levelProduct.isRequired()) {
-										groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.group.product.amount.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), levelProduct.getProductCode()));
-										return R.getResource("ctkm.import.new.condition.group.product.amount.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), levelProduct.getProductCode());
-									}
-								} else {
-									if(levelProduct.getQuantity() != null && !levelProduct.isRequired()) {
-										groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.group.product.quantity.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), levelProduct.getProductCode()));
-										return R.getResource("ctkm.import.new.condition.group.product.quantity.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), levelProduct.getProductCode());
-									}
-								}
-							}
-						}
-						
-						if(CONDITION_TYPE_AMOUNT.equals(conditionType)) {
-							if(groupLevelBuy.getAmount() == null || groupLevelBuy.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-								groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.group.amount.is.not.empty", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.group.amount.is.not.empty", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-							
-							if(totalAmount.compareTo(groupLevelBuy.getAmount()) > 0) {
-								groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.group.greater.amount", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.group.greater.amount", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-						} else {
-							if(groupLevelBuy.getQuantity() == null || groupLevelBuy.getQuantity().compareTo(0) <= 0) {
-								groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.group.quantity.is.not.empty", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.group.quantity.is.not.empty", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-							
-							if(totalQuantity.compareTo(groupLevelBuy.getQuantity()) > 0) {
-								groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.group.greater.quantity", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.group.greater.quantity", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-						}
-					}
-				}
-			}			
-		}
-		return sbMessage.toString();
-	}
-	
-	private String validatePromotionBundle(PromotionImportVO importNewVO, Integer conditionType) {
-		StringBuilder sbMessage = new StringBuilder();
-		if(importNewVO.getProductGroups() != null && importNewVO.getProductGroups().size() > 0) {
-			sbMessage.append(validatePromotionMultiGroup(importNewVO));
-			if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-				return sbMessage.toString();
-			}
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {
-				sbMessage.append(validatePromotionProductIsNotHomogeneous(importNewVO, groupNewVO));
-				if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-					return sbMessage.toString();
-				}
-				if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-					sbMessage.append(validatePromotionGroupLevelUnit(importNewVO, groupNewVO));
-					if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-						return sbMessage.toString();
-					}
-					
-					int size = groupNewVO.getGroupLevelBuys().size();
-					for(int i = 0; i < size; i++) {
-						PromotionImportGroupLevelVO groupLevelBuy = groupNewVO.getGroupLevelBuys().get(i);
-						for(PromotionImportGroupLevelProductVO groupLevelProduct : groupLevelBuy.getGroupLevelProduct()) {
-							if(CONDITION_TYPE_AMOUNT.equals(conditionType)) {
-								if(groupLevelProduct.getAmount()==null||groupLevelProduct.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-									groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.line.product.amount.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.condition.line.product.amount.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-								}
-							} else {
-								if(groupLevelProduct.getQuantity()==null||groupLevelProduct.getQuantity().compareTo(0) <= 0) {
-									groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.line.product.quantity.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.condition.line.product.quantity.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-								}
-							}
-							if(!groupLevelProduct.isRequired()) {
-								groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.condition.line.product.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), groupLevelProduct.getProductCode()));
-								return R.getResource("ctkm.import.new.condition.line.product.required", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), groupLevelProduct.getProductCode());
-							}
-							
-							if(groupLevelBuy.getSubGroupLevelProduct() != null && groupLevelBuy.getSubGroupLevelProduct().size() > 0) {
-								importNewVO.setMessageError(R.getResource("ctkm.import.new.condition.doc.sub.condition", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.doc.sub.condition", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-						}						
-					}
-				}
-			}
-		}
-		return sbMessage.toString();
-	}
-	
-	private String validatePromotionDoc(PromotionImportVO importNewVO, Integer conditionType) {
-		StringBuilder sbMessage = new StringBuilder();		
-		final List<String> PROMOTION_TYPE_DOC_AMOUNT =  Arrays.asList(PromotionType.ZV19.getValue(), PromotionType.ZV20.getValue(), PromotionType.ZV21.getValue());
-		if(importNewVO.getProductGroups() != null && importNewVO.getProductGroups().size() > 0) {
-			sbMessage.append(validatePromotionMultiGroup(importNewVO));
-			if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-				return sbMessage.toString();
-			}
-			
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {
-				if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-					sbMessage.append(validatePromotionGroupLevelUnit(importNewVO, groupNewVO));
-					if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-						return sbMessage.toString();
-					}
-					
-					int size = groupNewVO.getGroupLevelBuys().size();
-					for(int i = 0; i < size; i++) {
-						PromotionImportGroupLevelVO groupLevelBuy = groupNewVO.getGroupLevelBuys().get(i);
-						if(groupLevelBuy.getGroupLevelProduct().size() > 0) {
-							importNewVO.setMessageError(R.getResource("ctkm.import.new.condition.doc.is.not.product", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), importNewVO.getType()));
-							return R.getResource("ctkm.import.new.condition.doc.is.not.product", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), importNewVO.getType());
-						}
-						
-						if(CONDITION_TYPE_AMOUNT.equals(conditionType)) {
-							if(groupLevelBuy.getAmount() == null || groupLevelBuy.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-								importNewVO.setMessageError(R.getResource("ctkm.import.new.condition.doc.group.level.amount.null", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.doc.group.level.amount.null", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-						} else {
-							if(groupLevelBuy.getQuantity() == null || groupLevelBuy.getQuantity().compareTo(0) <= 0) {
-								importNewVO.setMessageError(R.getResource("ctkm.import.new.condition.doc.group.level.quantity.null", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.doc.group.level.quantity.null", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-						}
-						
-						if(!PROMOTION_TYPE_DOC_AMOUNT.contains(importNewVO.getType())) {
-							if(groupLevelBuy.getSubGroupLevelProduct() != null && groupLevelBuy.getSubGroupLevelProduct().size() > 0) {
-								importNewVO.setMessageError(R.getResource("ctkm.import.new.condition.doc.sub.condition", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.doc.sub.condition", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-						}						
-					}
-					sbMessage.append(validatePromotionGroupLevelConditionQuantityOrAmount(importNewVO, conditionType, groupNewVO));
-					if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-						return sbMessage.toString();
-					}					
-				}
-			}
-		}
-		return sbMessage.toString();
-	}
-	
-	private String validatePromotionGroupSubCondition(PromotionImportVO importNewVO, Integer conditionType) {
-		if(importNewVO.getProductGroups() != null && importNewVO.getProductGroups().size() > 0) {
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {
-				if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-					int size = groupNewVO.getGroupLevelBuys().size();
-					for(int i = 0; i < size; i++) {
-						PromotionImportGroupLevelVO groupLevelBuy = groupNewVO.getGroupLevelBuys().get(i);
-						if(groupLevelBuy.getSubGroupLevelProduct() == null || groupLevelBuy.getSubGroupLevelProduct().size() <= 0) {
-							continue;
-						}
-						
-						List<String> productCodes = new ArrayList<>();
-						List<PromotionImportSubGroupLevelProductVO> lstSubGroupLevelProduct = groupLevelBuy.getSubGroupLevelProduct();
-						for(int j = 0; j < lstSubGroupLevelProduct.size(); j++) {
-							PromotionImportSubGroupLevelProductVO subGroupLevelProduct = lstSubGroupLevelProduct.get(j);
-							if(CONDITION_TYPE_AMOUNT.equals(conditionType)) {
-								if(subGroupLevelProduct.getAmount() == null || subGroupLevelProduct.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-									subGroupLevelProduct.setMessageError(R.getResource("ctkm.import.new.condition.group.sub.condition.quantity.invalid", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.condition.group.sub.condition.quantity.invalid", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-								}
-								
-								if(subGroupLevelProduct.getAmount().compareTo(groupLevelBuy.getAmount()) > 0) {
-									subGroupLevelProduct.setMessageError(R.getResource("ctkm.import.new.condition.group.sub.condition.greater.amount", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.condition.group.sub.condition.greater.amount", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-								}
-							} else {
-								if(subGroupLevelProduct.getQuantity() == null || subGroupLevelProduct.getQuantity().compareTo(0) <= 0) {
-									subGroupLevelProduct.setMessageError(R.getResource("ctkm.import.new.condition.group.sub.condition.quantity.invalid", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.condition.group.sub.condition.quantity.invalid", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-								}
-								
-								if(subGroupLevelProduct.getQuantity().compareTo(groupLevelBuy.getQuantity()) > 0) {
-									subGroupLevelProduct.setMessageError(R.getResource("ctkm.import.new.condition.group.sub.condition.greater.quantity", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.condition.group.sub.condition.greater.quantity", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-								}
-							}
-							
-							if(subGroupLevelProduct.getSubGroupLevelProductDetail() == null || subGroupLevelProduct.getSubGroupLevelProductDetail().size() <= 0) {
-								subGroupLevelProduct.setMessageError(R.getResource("ctkm.import.new.condition.group.sub.condition.product.empty", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.group.sub.condition.product.empty", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-							
-							if(subGroupLevelProduct.getSubGroupLevelProductDetail().size() < 2) {
-								subGroupLevelProduct.setMessageError(R.getResource("ctkm.import.new.condition.group.sub.condition.product.size.invalid", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.group.sub.condition.product.size.invalid", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode());
-							}
-							
-							for(PromotionImportSubGroupLevelProductDetailVO product : subGroupLevelProduct.getSubGroupLevelProductDetail()) {
-								if(productCodes.indexOf(product.getProductCode()) != -1) {
-									subGroupLevelProduct.setMessageError(R.getResource("ctkm.import.new.condition.group.sub.condition.product.duplicate", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), product.getProductCode()));
-									return R.getResource("ctkm.import.new.condition.group.sub.condition.product.duplicate", importNewVO.getType(), groupNewVO.getGroupCode(), groupLevelBuy.getGroupLevelCode(), product.getProductCode());
-								}
-								productCodes.add(product.getProductCode());								
-							}
-						}
-						
-					}
-				}
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionDocSubCondition(PromotionImportVO importNewVO, Integer conditionType) {
-		if(importNewVO.getProductGroups() != null && importNewVO.getProductGroups().size() > 0) {
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {			
-				if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-					int size = groupNewVO.getGroupLevelBuys().size();
-					List<String> rootProductCodes = new ArrayList<>();
-					PromotionImportGroupLevelVO groupLevel = groupNewVO.getGroupLevelBuys().get(0);
-					if(groupLevel.getSubGroupLevelProduct() != null && groupLevel.getSubGroupLevelProduct().size() > 0) {
-						if(groupLevel.getSubGroupLevelProduct().size() > 1) {
-							groupLevel.setMessageError(R.getResource("ctkm.import.new.condition.doc.sub.multi.group.level", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevel.getGroupLevelCode()));
-							return R.getResource("ctkm.import.new.condition.doc.sub.multi.group.level", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevel.getGroupLevelCode());
-						}
-						
-						PromotionImportSubGroupLevelProductVO subGroupLevelProduct = groupLevel.getSubGroupLevelProduct().get(0);
-						if(subGroupLevelProduct.getSubGroupLevelProductDetail() == null && subGroupLevelProduct.getSubGroupLevelProductDetail().size() == 0) {
-							groupLevel.setMessageError(R.getResource("ctkm.import.new.condition.doc.sub.group.level.not.product", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevel.getGroupLevelCode()));
-							return R.getResource("ctkm.import.new.condition.doc.sub.group.level.not.product", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevel.getGroupLevelCode());
-						}
-						
-						for(PromotionImportSubGroupLevelProductDetailVO subGroupLevelProductDetail : subGroupLevelProduct.getSubGroupLevelProductDetail()) {
-							if (rootProductCodes.indexOf(subGroupLevelProductDetail.getProductCode()) == -1) {
-								rootProductCodes.add(subGroupLevelProductDetail.getProductCode());
-							}
-						}
-					}
-					
-					for(int i = 0; i < (size - 1); i++) {
-						PromotionImportGroupLevelVO groupLevelBuyEx1 = groupNewVO.getGroupLevelBuys().get(i);						
-						if((groupLevelBuyEx1.getSubGroupLevelProduct() == null || groupLevelBuyEx1.getSubGroupLevelProduct().size() == 0) && rootProductCodes.size() > 0) {
-							groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode()));
-							return R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode());
-						}
-						
-						if(groupLevelBuyEx1.getSubGroupLevelProduct().size() > 1) {
-							groupNewVO.getGroupLevelBuys().get(0).setMessageError(R.getResource("ctkm.import.new.condition.doc.sub.multi.group.level", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode()));
-							return R.getResource("ctkm.import.new.condition.doc.sub.multi.group.level", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode());
-						}	
-						
-						if(groupLevelBuyEx1.getSubGroupLevelProduct() != null && groupLevelBuyEx1.getSubGroupLevelProduct().size() > 0) {
-							PromotionImportSubGroupLevelProductVO subGroupLevelProduct = groupLevelBuyEx1.getSubGroupLevelProduct().get(0);
-							if(subGroupLevelProduct.getSubGroupLevelProductDetail() == null && subGroupLevelProduct.getSubGroupLevelProductDetail().size() == 0) {
-								groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.doc.sub.group.level.not.product", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode()));
-								return R.getResource("ctkm.import.new.condition.doc.sub.group.level.not.product", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode());
-							}
-							
-							List<String> lstProductCode = new ArrayList<>();
-							for(PromotionImportSubGroupLevelProductDetailVO subGroupLevelProductDetail : subGroupLevelProduct.getSubGroupLevelProductDetail()) {
-								if (lstProductCode.indexOf(subGroupLevelProductDetail.getProductCode()) == -1) {
-									lstProductCode.add(subGroupLevelProductDetail.getProductCode());
-								} else {
-									groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.product.is.duplicate", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.condition.product.is.duplicate", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelBuyEx1.getGroupLevelCode());
-								}
-							}
-							
-							if(lstProductCode.size() != rootProductCodes.size()) {
-								groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode()));
-								return R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode());
-							}
-
-							for(PromotionImportSubGroupLevelProductDetailVO subGroupLevelProductDetail : subGroupLevelProduct.getSubGroupLevelProductDetail()) {
-								if(rootProductCodes.indexOf(subGroupLevelProductDetail.getProductCode()) == -1) {
-									groupLevelBuyEx1.setMessageError(R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode()));
-									return R.getResource("ctkm.import.new.condition.product.is.not.homogeneous", importNewVO.getPromotionCode(), groupNewVO.getGroupCode());
-								}
-							}	
-						}					
-					}
-				}
-			}
-		}
-		return "";
-	}
-	
-	private String validatePromotionKM(PromotionImportVO importNewVO, Integer conditionType) {
-		StringBuilder sbMessage = new StringBuilder();
-		if(importNewVO.getProductGroups() != null && importNewVO.getProductGroups().size() > 0) {
-			sbMessage.append(validatePromotionMultiGroup(importNewVO));
-			if(!StringUtil.isNullOrEmpty(sbMessage.toString())) {
-				return sbMessage.toString();
-			}
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {
-				if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
-					int size = groupNewVO.getGroupLevelKMs().size();
-					for(int i = 0; i < size; i++) {					
-						if(i < groupNewVO.getGroupLevelKMs().size()) {
-							PromotionImportGroupLevelVO groupLevelKM = groupNewVO.getGroupLevelKMs().get(i);
-							if(CONDITION_TYPE_AMOUNT.equals(conditionType)) {
-								if(groupLevelKM.getAmount() == null) {
-									groupLevelKM.setMessageError(R.getResource("ctkm.import.new.km.group.level.amount.null", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.km.group.level.amount.null", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode());
-								}
-								
-								if(groupLevelKM.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-									groupLevelKM.setMessageError(R.getResource("ctkm.import.new.km.group.level.amount.zero", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.km.group.level.amount.zero", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode());
-								}
-							} else if(CONDITION_TYPE_PERCENT.equals(conditionType)) {
-								if(groupLevelKM.getPercent() == null) {
-									groupLevelKM.setMessageError(R.getResource("ctkm.import.new.km.group.level.percent.null", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.km.group.level.percent.null", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode());
-								}
-								if(groupLevelKM.getPercent() < 0) {
-									groupLevelKM.setMessageError(R.getResource("ctkm.import.new.km.group.level.percent.zero", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.km.group.level.percent.zero", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode());
-								}
-								if(groupLevelKM.getPercent() > 100) {
-									groupLevelKM.setMessageError(R.getResource("ctkm.import.new.km.group.level.percent.zero", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.km.group.level.percent.zero", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode());
-								}								
-							} else if(CONDITION_TYPE_QUANTITY.equals(conditionType)) {
-								if(groupLevelKM.getGroupLevelProduct() != null && groupLevelKM.getGroupLevelProduct().size() > 0) {
-									for(int j = 0; j < groupLevelKM.getGroupLevelProduct().size(); j++) {
-										if(groupLevelKM.getGroupLevelProduct().get(j).getQuantity() == null) {
-											groupLevelKM.getGroupLevelProduct().get(j).setMessageError(R.getResource("ctkm.import.new.km.group.level.product.quantity.null", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode()));
-											return R.getResource("ctkm.import.new.km.group.level.product.quantity.null", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode());
-										}
-									}
-								} else {
-									groupLevelKM.setMessageError(R.getResource("ctkm.import.new.km.group.level.not.product", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode()));
-									return R.getResource("ctkm.import.new.km.group.level.not.product", importNewVO.getPromotionCode(), groupNewVO.getGroupCode(), groupLevelKM.getGroupLevelCode());
-								}
-							}
-						}						
-					}
-				}
-			}
-		}
-		return "";
-	}
-	
-	private List<PromotionImportVO> validatePromotionImportNew (List<PromotionImportVO> importNewVOs, List<PromotionImportVO> promotionImportNewErrorVOs) {
-		List<PromotionImportVO> promotionImportNewVOs = new ArrayList<>();
-		for(PromotionImportVO importNewVO : importNewVOs) {
-			String message = "";
-			if(PromotionType.ZV01.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV01(importNewVO);
-            } else if(PromotionType.ZV02.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV02(importNewVO);
-            } else if(PromotionType.ZV03.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV03(importNewVO);
-            } else if(PromotionType.ZV04.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV04(importNewVO);
-            } else if(PromotionType.ZV05.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV05(importNewVO);
-            } else if(PromotionType.ZV06.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV06(importNewVO);
-            } else if(PromotionType.ZV07.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV07(importNewVO);
-            } else if(PromotionType.ZV08.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV08(importNewVO);
-            } else if(PromotionType.ZV09.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV09(importNewVO);
-            } else if(PromotionType.ZV10.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV10(importNewVO);
-            } else if(PromotionType.ZV11.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV11(importNewVO);
-            } else if(PromotionType.ZV12.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV12(importNewVO);
-            } else if(PromotionType.ZV13.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV13(importNewVO);
-            } else if(PromotionType.ZV14.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV14(importNewVO);
-            } else if(PromotionType.ZV15.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV15(importNewVO);
-            } else if(PromotionType.ZV16.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV16(importNewVO);
-            } else if(PromotionType.ZV17.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV17(importNewVO);
-            } else if(PromotionType.ZV18.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV18(importNewVO);
-            } else if(PromotionType.ZV19.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV19(importNewVO);
-            } else if(PromotionType.ZV20.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV20(importNewVO);
-            } else if(PromotionType.ZV21.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV21(importNewVO);
-            } else if(PromotionType.ZV22.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV22(importNewVO);
-            } else if(PromotionType.ZV23.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV23(importNewVO);
-            }  else if(PromotionType.ZV24.getValue().equals(importNewVO.getType())) {
-                message = validatePromotionImportZV24(importNewVO);
-            }else {
-                importNewVO.setMessageError(R.getResource("ctkm.import.new.program.type.not.process", importNewVO.getType()));
-                promotionImportNewErrorVOs.add(importNewVO);
-                continue;
-            }
-			
-			if(!StringUtil.isNullOrEmpty(message)) {
-				// lỗi CTKM
-				promotionImportNewErrorVOs.add(importNewVO);
-				continue;
-			}
-			
-			promotionImportNewVOs.add(importNewVO);
-		}
-		return promotionImportNewVOs;
-	}
-	
-	private String validatePromotionImportZV01(PromotionImportVO importNewVO) {
-		resetProgramMultiple(importNewVO);
-		resetProgramRecursive(importNewVO);
-		resetProgramDiscountType(importNewVO);
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionLine(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_PERCENT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		return "";
-	}
-	
-	private String validatePromotionImportZV02(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionLine(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV03(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		resetProgramVoucherTime(importNewVO);
-		
-		String messageError = validatePromotionLine(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV04(PromotionImportVO importNewVO) {
-		resetProgramMultiple(importNewVO);
-		resetProgramRecursive(importNewVO);
-		resetProgramDiscountType(importNewVO);
-		
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionLine(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_PERCENT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV05(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionLine(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV06(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		resetProgramVoucherTime(importNewVO);
-		
-		String messageError = validatePromotionLine(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV07(PromotionImportVO importNewVO) {
-		resetProgramMultiple(importNewVO);
-		resetProgramRecursive(importNewVO);
-		resetProgramDiscountType(importNewVO);
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroup(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroupSubCondition(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_PERCENT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV08(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroup(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroupSubCondition(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV09(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		resetProgramVoucherTime(importNewVO);
-		
-		String messageError = validatePromotionGroup(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroupSubCondition(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV10(PromotionImportVO importNewVO) {
-		resetProgramRecursive(importNewVO);
-		resetProgramDiscountType(importNewVO);
-		
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroup(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroupSubCondition(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_PERCENT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV11(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroup(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroupSubCondition(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV12(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		resetProgramVoucherTime(importNewVO);
-		
-		String messageError = validatePromotionGroup(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionGroupSubCondition(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV13(PromotionImportVO importNewVO) {
-		resetProgramRecursive(importNewVO);
-		resetProgramDiscountType(importNewVO);
-		
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionBundle(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_PERCENT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV14(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionBundle(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV15(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		resetProgramVoucherTime(importNewVO);
-		
-		String messageError = validatePromotionBundle(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV16(PromotionImportVO importNewVO) {
-		resetProgramRecursive(importNewVO);
-		resetProgramDiscountType(importNewVO);
-		
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionBundle(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_PERCENT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV17(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionBundle(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-		
-	private String validatePromotionImportZV18(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		resetProgramVoucherTime(importNewVO);
-		
-		String messageError = validatePromotionBundle(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}	
-	
-	private String validatePromotionImportZV19(PromotionImportVO importNewVO) {
-		resetProgramMultiple(importNewVO);
-		resetProgramRecursive(importNewVO);
-		
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionDoc(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionDocSubCondition(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_PERCENT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV20(PromotionImportVO importNewVO) {
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionDoc(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionDocSubCondition(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV21(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		resetProgramVoucherTime(importNewVO);
-		String messageError = validatePromotionDoc(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionDocSubCondition(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV22(PromotionImportVO importNewVO) {
-		resetProgramMultiple(importNewVO);
-		resetProgramRecursive(importNewVO);
-		
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionDoc(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_PERCENT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV23(PromotionImportVO importNewVO) {
-		String messageError = validateVoucher(importNewVO);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionDoc(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_AMOUNT);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-	
-	private String validatePromotionImportZV24(PromotionImportVO importNewVO) {
-		resetProgramDiscountType(importNewVO);
-		resetProgramVoucherTime(importNewVO);
-		
-		String messageError = validatePromotionDoc(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		
-		messageError = validatePromotionKM(importNewVO, CONDITION_TYPE_QUANTITY);
-		if(!StringUtil.isNullOrEmpty(messageError)) {
-			return messageError;
-		}
-		return "";
-	}
-
-	private List<PromotionImportVO> sortPromotionImportNew (List<PromotionImportVO> importNewVOs) {
-		// danh index cho muc theo index của list groupLevel và sort mức
-		for(PromotionImportVO importNewVO : importNewVOs) {
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {
-				List<PromotionImportGroupLevelVO> groupLevelBuys = groupNewVO.getGroupLevelBuys();
-				for(int i = 0; i < groupLevelBuys.size(); i++) {
-					groupLevelBuys.get(i).setIndex(i + 1);
-				}				
-			}
-		}
-		
-		// sort mức mua
-		List<String> lstZVQuantity = PromotionProgramMgr.PROMOTION_TYPE_QUANTITY_CONDITIONS;
-		List<String> lstZVsmount = PromotionProgramMgr.PROMOTION_TYPE_AMOUNT_CONDITIONS;
-		List<String> lstZVLine = PromotionProgramMgr.PROMOTION_TYPE_LINES;
-		List<String> lstZVGroup = PromotionProgramMgr.PROMOTION_TYPE_GROUPS;
-		List<String> lstZVbundle = PromotionProgramMgr.PROMOTION_TYPE_GROUPS;
-		List<String> lstZVDoc = PromotionProgramMgr.PROMOTION_TYPE_DOCS;
-		for(PromotionImportVO importNewVO : importNewVOs) {
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {
-				List<PromotionImportGroupLevelVO> groupLevelBuys = groupNewVO.getGroupLevelBuys();
-				if(lstZVGroup.contains(importNewVO.getType()) || lstZVDoc.contains(importNewVO.getType())) {
-					if(lstZVQuantity.contains(importNewVO.getType())) {
-						Collections.sort(groupLevelBuys, new Comparator<PromotionImportGroupLevelVO>() {
-							@Override
-							public int compare(PromotionImportGroupLevelVO arr1, PromotionImportGroupLevelVO arr2) {
-								if(arr1.getQuantity() > arr2.getQuantity()) {
-									return -1;
-								}
-								
-								if(arr1.getQuantity() < arr2.getQuantity()) {
-									return 1;
-								}
-								return 0;
-							}							
-						});	
-					} else if(lstZVsmount.contains(importNewVO.getType())) {
-						Collections.sort(groupLevelBuys, new Comparator<PromotionImportGroupLevelVO>() {
-							@Override
-							public int compare(PromotionImportGroupLevelVO arr1, PromotionImportGroupLevelVO arr2) {
-								if(arr1.getAmount().compareTo(arr2.getAmount()) == 1) {
-									return -1;
-								}
-								
-								if(arr1.getAmount().compareTo(arr2.getAmount()) == -1) {
-									return 1;
-								}
-								return 0;
-							}							
-						});	
-					}
-				} else if(lstZVLine.contains(importNewVO.getType()) || lstZVbundle.contains(importNewVO.getType())) {
-					if(lstZVQuantity.contains(importNewVO.getType())) {
-						Collections.sort(groupLevelBuys, new Comparator<PromotionImportGroupLevelVO>() {
-							@Override
-							public int compare(PromotionImportGroupLevelVO arr1, PromotionImportGroupLevelVO arr2) {
-								if(arr1.getGroupLevelProduct().get(0).getQuantity() > arr2.getGroupLevelProduct().get(0).getQuantity()) {
-									return -1;
-								}
-								
-								if(arr1.getGroupLevelProduct().get(0).getQuantity() < arr2.getGroupLevelProduct().get(0).getQuantity()) {
-									return 1;
-								}
-								return 0;
-							}							
-						});	
-					} else if(lstZVsmount.contains(importNewVO.getType())) {
-						Collections.sort(groupLevelBuys, new Comparator<PromotionImportGroupLevelVO>() {
-							@Override
-							public int compare(PromotionImportGroupLevelVO arr1, PromotionImportGroupLevelVO arr2) {
-								if(arr1.getGroupLevelProduct().get(0).getAmount().compareTo(arr2.getGroupLevelProduct().get(0).getAmount()) == 1) {
-									return -1;
-								}
-								
-								if(arr1.getGroupLevelProduct().get(0).getAmount().compareTo(arr2.getGroupLevelProduct().get(0).getAmount()) == -1) {
-									return 1;
-								}
-								return 0;
-							}							
-						});	
-					}
-				}					
-			}
-		}		
-		
-		// sort mức khuyen mãi theo mức mua
-		for(PromotionImportVO importNewVO : importNewVOs) {
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {
-				List<PromotionImportGroupLevelVO> groupLevelBuys = groupNewVO.getGroupLevelBuys();
-				List<PromotionImportGroupLevelVO> tmpGroupLevelKMs = groupNewVO.getGroupLevelKMs();
-				List<PromotionImportGroupLevelVO> groupLevelKMs = new ArrayList<>();
-				for(int i = 0; i < groupLevelBuys.size(); i++) {
-					groupLevelKMs.add(tmpGroupLevelKMs.get(groupLevelBuys.get(i).getIndex() - 1));
-				}
-				groupNewVO.setGroupLevelKMs(groupLevelKMs);
-			}
-		}
-		return importNewVOs;
-	}
-	
-	private String WriteFileErrorNew (List<CellBean> infoPromotionError, List<CellBean> infoPromotionDetailError, List<CellBean> infoPromotionShopError) {
-		final String serverPath = ServletActionContext.getServletContext().getRealPath("/");
-		String templateName = "Bieu_mau_thong_tin_CTKM_Error.xls";
-		String templateFileName = serverPath + Configuration.getExcelTemplatePathCatalog()  + templateName;
-		String outputName = DateUtil.toDateString(DateUtil.now(), DateUtil.DATE_FORMAT_EXCEL_FILE) + "_" + templateName;
-		templateFileName = templateFileName.replace('/', File.separatorChar);
-		String outstoredFileName = Configuration. getStoreImportDownloadPath()+ outputName;
-		outstoredFileName = outstoredFileName.replace('/', File.separatorChar);
-		
-		Map<String, Object> params = new HashMap<String, Object>();
-		params.put("report1", infoPromotionError);
-		params.put("report2", infoPromotionDetailError);
-		params.put("report3", infoPromotionShopError);
-		fileNameFail = Configuration.getStoreImportFailDownloadPath()+ outputName;
-		XLSTransformer transformer = new XLSTransformer();
-		try {
-			transformer.transformXLS(templateFileName, params, outstoredFileName);
-		} catch (ParsePropertyException e) {
-			LogUtility.logError(e, e.getMessage());
-		} catch (InvalidFormatException e) {
-			LogUtility.logError(e, e.getMessage());
-		} catch (IOException e) {
-			LogUtility.logError(e, e.getMessage());
-		}
-		return SUCCESS;
-	}
-
-	private String getStringValueForCell(Object value) {
-		if(value instanceof String) {
-			if(!StringUtil.isNullOrEmpty(value.toString())) {
-				return value.toString().trim();
-			}
-		}	
-			
-		if(value instanceof Date) {
-			if(!StringUtil.isNullOrEmpty(String.valueOf(value))) {
-				return DateUtil.toDateString((Date)value, DateUtil.DATE_FORMAT_DDMMYYYY);
-			}
-		}
-		
-		if(value instanceof BigDecimal) {
-			if(value != null) {
-				return String.valueOf(value);
-			}
-		}
-		return "";
-	}
-	
-	private void convertObjectPromotionToCellBeanNew(List<PromotionImportVO> importNewVOs, List<CellBean> infoPromotionError, List<CellBean> infoPromotionDetailError, List<CellBean> infoPromotionShopError) {
-		for (PromotionImportVO importNewVO : importNewVOs) {
-			CellBean promotionInfoRow = new CellBean();
-			promotionInfoRow.setContent1(getStringValueForCell(importNewVO.getPromotionCode()));
-			promotionInfoRow.setContent2(getStringValueForCell(importNewVO.getPromotionName()));
-			promotionInfoRow.setContent3(getStringValueForCell(importNewVO.getVersion()));
-			promotionInfoRow.setContent4(getStringValueForCell(importNewVO.getType()));
-			promotionInfoRow.setContent5(getStringValueForCell(importNewVO.getFromDate()));
-			promotionInfoRow.setContent6(getStringValueForCell(importNewVO.getToDate()));
-			promotionInfoRow.setContent7(getStringValueForCell(importNewVO.getNotice()));
-			promotionInfoRow.setContent8(getStringValueForCell(importNewVO.getDescriptionProduct()));
-			promotionInfoRow.setContent9(getStringValueForCell(importNewVO.getDescription()));
-			promotionInfoRow.setContent10(getStringValueForCell(importNewVO.isMultiple()));
-			promotionInfoRow.setContent11(!StringUtil.isNullOrEmpty(String.valueOf(importNewVO.isRecursive())) ? String.valueOf(importNewVO.isRecursive() ? 1 : 0):"");
-			promotionInfoRow.setContent12(importNewVO.getRewardType()!=null ? String.valueOf(importNewVO.getRewardType()):"");
-			promotionInfoRow.setContent13(getStringValueForCell(importNewVO.getApplyFromDate()));
-			promotionInfoRow.setContent14(getStringValueForCell(importNewVO.getApplyToDate()));
-			promotionInfoRow.setContent15(getStringValueForCell(importNewVO.getDiscountType()));
-			promotionInfoRow.setErrMsg(importNewVO.getMessageError());
-			infoPromotionError.add(promotionInfoRow);
-			
-			for(PromotionImportShopVO importShopNewVO : importNewVO.getShops()) {
-				CellBean promotionShop = new CellBean();
-				promotionShop.setContent1(getStringValueForCell(importNewVO.getPromotionCode()));
-				promotionShop.setContent2(getStringValueForCell(importShopNewVO.getShopCode()));
-				promotionShop.setContent3(getStringValueForCell(importShopNewVO.getNum()));
-				promotionShop.setContent4(importShopNewVO.getAmount() != null ? StringUtil.convertMoney(importShopNewVO.getAmount()):"");
-				promotionShop.setContent5(getStringValueForCell(importShopNewVO.getQuantity()));
-				promotionShop.setContent6(importShopNewVO.getMessageError());
-				if(!StringUtil.isNullOrEmpty(importShopNewVO.getKeyMessage())) {
-					promotionShop.setErrMsg(R.getResource(importShopNewVO.getKeyMessage()));
-				}
-				
-				infoPromotionShopError.add(promotionShop);
-			}
-			for(PromotionImportGroupVO groupNewVO : importNewVO.getProductGroups()) {				
-				for(int i = 0; i < groupNewVO.getGroupLevelBuys().size(); i++) {
-					PromotionImportGroupLevelVO groupLevelNewMuaVO = groupNewVO.getGroupLevelBuys().get(i);
-					PromotionImportGroupLevelVO groupLevelNewKMVO = groupNewVO.getGroupLevelKMs().get(i);
-					int index = infoPromotionDetailError.size();//13 - > 23
-					// ghi muc mua
-					CellBean promotionDetailGroupLevel = new CellBean();
-					promotionDetailGroupLevel.setContent1(getStringValueForCell(importNewVO.getPromotionCode()));
-					promotionDetailGroupLevel.setContent2(importNewVO.getType());
-					promotionDetailGroupLevel.setContent3(groupNewVO.getGroupCode());
-					promotionDetailGroupLevel.setContent4(groupLevelNewMuaVO.getGroupLevelCode());
-					promotionDetailGroupLevel.setContent5("X");
-					promotionDetailGroupLevel.setContent8(groupLevelNewMuaVO.getQuantity()!=null?String.valueOf(groupLevelNewMuaVO.getQuantity()):"");
-					promotionDetailGroupLevel.setContent9(!StringUtil.isNullOrEmpty(String.valueOf(groupLevelNewMuaVO.getUnit())) ? groupLevelNewMuaVO.getUnit()==1 ? R.getResource("ctkm.import.new.le"):R.getResource("ctkm.import.new.thung"):"");
-					promotionDetailGroupLevel.setContent10(groupLevelNewMuaVO.getAmount() != null ? StringUtil.convertMoney(groupLevelNewMuaVO.getAmount()):"");
-					promotionDetailGroupLevel.setContent12(groupLevelNewKMVO.getAmount() != null ? StringUtil.convertMoney(groupLevelNewKMVO.getAmount()):"");
-					promotionDetailGroupLevel.setContent13(groupLevelNewKMVO.getPercent() != null ? String.valueOf(groupLevelNewKMVO.getPercent()):"");
-					promotionDetailGroupLevel.setErrMsg(getStringValueForCell(groupLevelNewMuaVO.getMessageError()) + getStringValueForCell(groupLevelNewKMVO.getMessageError())
-							+ groupNewVO.getMessageError());
-					infoPromotionDetailError.add(promotionDetailGroupLevel);
-					for (int j = 0; j < groupLevelNewMuaVO.getGroupLevelProduct().size(); j++) {						
-						// cell con
-						CellBean promotionDetailGroupLevelproduct = new CellBean();
-						promotionDetailGroupLevelproduct.setContent1(getStringValueForCell(importNewVO.getPromotionCode()));
-						promotionDetailGroupLevelproduct.setContent2(importNewVO.getType());
-						promotionDetailGroupLevelproduct.setContent3(groupNewVO.getGroupCode());
-						promotionDetailGroupLevelproduct.setContent4(groupLevelNewMuaVO.getGroupLevelCode());
-						promotionDetailGroupLevelproduct.setContent5("X");
-						promotionDetailGroupLevelproduct.setContent7(getStringValueForCell(groupLevelNewMuaVO.getGroupLevelProduct().get(j).getProductCode()));
-						promotionDetailGroupLevelproduct.setContent10(groupLevelNewMuaVO.getGroupLevelProduct().get(j).getAmount() != null ? StringUtil.convertMoney(groupLevelNewMuaVO.getGroupLevelProduct().get(j).getAmount()):"");
-						promotionDetailGroupLevelproduct.setContent11(groupLevelNewMuaVO.getGroupLevelProduct().get(j).getQuantity()!=null?String.valueOf(groupLevelNewMuaVO.getGroupLevelProduct().get(j).getQuantity()):"");
-						promotionDetailGroupLevelproduct.setErrMsg(getStringValueForCell(groupLevelNewMuaVO.getGroupLevelProduct().get(j).getMessageError()));
-						infoPromotionDetailError.add(promotionDetailGroupLevelproduct);
-					}
-					
-					for (int j = 0; j < groupLevelNewMuaVO.getSubGroupLevelProduct().size(); j++) {
-						PromotionImportSubGroupLevelProductVO subGroupLevelProduct = groupLevelNewMuaVO.getSubGroupLevelProduct().get(j);
-						//cell tong nhom dieu kien con
-						CellBean promotionDetailSubGroupLevel = new CellBean();
-						promotionDetailSubGroupLevel.setContent1(getStringValueForCell(importNewVO.getPromotionCode()));
-						promotionDetailSubGroupLevel.setContent2(importNewVO.getType());
-						promotionDetailSubGroupLevel.setContent3(groupNewVO.getGroupCode());
-						promotionDetailSubGroupLevel.setContent4(groupLevelNewMuaVO.getGroupLevelCode());
-						promotionDetailSubGroupLevel.setContent6("X");
-						promotionDetailSubGroupLevel.setContent8(groupLevelNewMuaVO.getSubGroupLevelProduct().get(j).getQuantity()!=null?String.valueOf(groupLevelNewMuaVO.getSubGroupLevelProduct().get(j).getQuantity()):"");
-						promotionDetailSubGroupLevel.setContent9(!StringUtil.isNullOrEmpty(String.valueOf(groupLevelNewMuaVO.getUnit())) ? groupLevelNewMuaVO.getUnit()==1 ? R.getResource("ctkm.import.new.le"):R.getResource("ctkm.import.new.thung"):"");
-						promotionDetailSubGroupLevel.setContent10(groupLevelNewMuaVO.getSubGroupLevelProduct().get(j).getAmount() != null ? StringUtil.convertMoney(groupLevelNewMuaVO.getSubGroupLevelProduct().get(j).getAmount()):"");
-						promotionDetailSubGroupLevel.setErrMsg(getStringValueForCell(groupLevelNewMuaVO.getSubGroupLevelProduct().get(j).getMessageError()));
-						infoPromotionDetailError.add(promotionDetailSubGroupLevel);
-						for(PromotionImportSubGroupLevelProductDetailVO product : subGroupLevelProduct.getSubGroupLevelProductDetail()) {
-							// cell chi tiet cho nhom dieu kien con
-							CellBean promotionDetailSubGroupLevelproduct = new CellBean();
-							promotionDetailSubGroupLevelproduct.setContent1(getStringValueForCell(importNewVO.getPromotionCode()));
-							promotionDetailSubGroupLevelproduct.setContent2(importNewVO.getType());
-							promotionDetailSubGroupLevelproduct.setContent3(groupNewVO.getGroupCode());
-							promotionDetailSubGroupLevelproduct.setContent4(groupLevelNewMuaVO.getGroupLevelCode());
-							promotionDetailSubGroupLevelproduct.setContent6("X");
-							promotionDetailSubGroupLevelproduct.setContent7(getStringValueForCell(product.getProductCode()));
-							promotionDetailSubGroupLevelproduct.setErrMsg(getStringValueForCell(product.getMessageError()));
-							infoPromotionDetailError.add(promotionDetailSubGroupLevelproduct);
-						}
-					}
-					
-					for (int j = 0; j < groupLevelNewKMVO.getGroupLevelProduct().size(); j++) {
-						int indexGroupKM = index + j;
-						CellBean promotionDetailSubGroupLevelproduct = null;
-						if(indexGroupKM < infoPromotionDetailError.size()) {
-							promotionDetailSubGroupLevelproduct = infoPromotionDetailError.get(indexGroupKM);
-						}
-						
-						if(promotionDetailSubGroupLevelproduct == null) {
-							promotionDetailSubGroupLevelproduct = new CellBean();
-							infoPromotionDetailError.add(promotionDetailSubGroupLevelproduct);
-						}
-						
-						// set thong tin cho nhom KM
-						promotionDetailSubGroupLevelproduct.setContent12(groupLevelNewKMVO.getAmount() != null ? StringUtil.convertMoney(groupLevelNewKMVO.getAmount()):"");
-						promotionDetailSubGroupLevelproduct.setContent13(groupLevelNewKMVO.getPercent() != null ? String.valueOf(groupLevelNewKMVO.getPercent()):"");
-						promotionDetailSubGroupLevelproduct.setContent14(getStringValueForCell(groupLevelNewKMVO.getGroupLevelProduct().get(j).getProductCode()));
-						promotionDetailSubGroupLevelproduct.setContent15(groupLevelNewKMVO.getGroupLevelProduct().get(j).getQuantity()!=null?String.valueOf(groupLevelNewKMVO.getGroupLevelProduct().get(j).getQuantity()):"");
-						promotionDetailSubGroupLevelproduct.setContent16(!StringUtil.isNullOrEmpty(String.valueOf(groupLevelNewKMVO.getUnit())) ? groupLevelNewKMVO.getUnit()==1 ? R.getResource("ctkm.import.new.le"):R.getResource("ctkm.import.new.thung"):"");
-						promotionDetailSubGroupLevelproduct.setContent17(groupLevelNewKMVO.getGroupLevelProduct().get(j).isRequired() ? "x" : "");
-						if (StringUtil.isNullOrEmpty(promotionDetailSubGroupLevelproduct.getErrMsg())){
-							promotionDetailSubGroupLevelproduct.setErrMsg(groupLevelNewKMVO.getGroupLevelProduct().get(j).getMessageError());	
-						}else{
-							promotionDetailSubGroupLevelproduct.setErrMsg(promotionDetailSubGroupLevelproduct.getErrMsg() + getStringValueForCell(groupLevelNewKMVO.getGroupLevelProduct().get(j).getMessageError()));
-						}
-					}
-				}
-			}
-			
-		}
-	}
-
-	/**
-	 * end import 24zv new
-	 * */
-	
 	
 	private String importExcelPromotionNew() {
 		try{
@@ -4014,7 +1390,6 @@ public class PromotionCatalogAction extends AbstractAction {
 		}		
 		return SUCCESS;
 	}
-		
 	private String WriteFileError(List<CellBean> infoPromotionError, List<CellBean> infoPromotionDetailError, List<CellBean> infoPromotionShopError){
 		final String serverPath = ServletActionContext.getServletContext().getRealPath("/");
 		String templateName = "Bieu_mau_thong_tin_CTKM_New_Error.xls";
@@ -4042,7 +1417,8 @@ public class PromotionCatalogAction extends AbstractAction {
 		}
 		return SUCCESS;
 	}
-		
+	
+	
 	private void getDataImportExcelPromotion (List<List<String>> infoPromotion, List<List<String>> infoPromotionDetail, List<List<String>> infoPromotionShop, List<CellBean> infoPromotionError, List<CellBean> infoPromotionDetailError, List<CellBean> infoPromotionShopError) {
 		InputStream is = null;
 		Workbook promotionWorkBook = null;
@@ -4911,13 +2287,13 @@ public class PromotionCatalogAction extends AbstractAction {
 			
 			
 	}
-		
+	
 	private List<PromotionImportNewVO> convertDataImportExcelPromotion (List<List<String>> infoPromotions, List<List<String>> infoPromotionDetails, List<List<String>> infoPromotionShops, List<CellBean> infoPromotionError, List<CellBean> infoPromotionDetailError, List<CellBean> infoPromotionShopError) {
 		List<PromotionImportNewVO> promotionImportNewVOs = new ArrayList<>();
 		boolean isExist = false;
 		final List<String> UNIT = Arrays.asList(R.getResource("ctkm.import.new.le"), R.getResource("ctkm.import.new.thung"));
-		final List<String> ALLOWED_RECURSIVE_TYPES = Arrays.asList("ZV02","ZV03","ZV05","ZV06","ZV08","ZV09","ZV11","ZV12","ZV13","ZV14","ZV15","ZV16","ZV17","ZV18","ZV20","ZV21","ZV23","ZV24");
-		final List<String> ALLOWED_MUTIPLE_TYPES = Arrays.asList("ZV02","ZV03","ZV05","ZV06","ZV08","ZV09","ZV11","ZV12","ZV14","ZV15","ZV17","ZV18","ZV20","ZV21","ZV23","ZV24");
+		final List<String> ALLOWED_RECURSIVE_TYPES = Arrays.asList("ZV08","ZV09","ZV11","ZV12","ZV20","ZV21");
+		final List<String> ALLOWED_MUTIPLE_TYPES = Arrays.asList("ZV08","ZV09","ZV11","ZV12","ZV20","ZV21");
 		for(List<String> infoPromotion : infoPromotions) {
 			// xu ly lấy thông tin CTKM
 			PromotionImportNewVO promotionImportNewVO = new PromotionImportNewVO();
@@ -5117,19 +2493,8 @@ public class PromotionCatalogAction extends AbstractAction {
 		}
 		return promotionImportNewVOs;
 	}
-		
-	private int checkDupShopForPromotionNew(List<PromotionImportShopNewVO> shops, String shopCode) {
-		if(shops != null && shops.size() > 0) {
-			for(int i = 0; i < shops.size(); i++) {
-				if(shops.get(i).getShopCode().trim().equals(shopCode.trim())) {
-					return i;
-				}
-			}
-		}
-		return -1;
-	}
 	
-	private int checkDupShopForPromotion(List<PromotionImportShopVO> shops, String shopCode) {
+	private int checkDupShopForPromotionNew(List<PromotionImportShopNewVO> shops, String shopCode) {
 		if(shops != null && shops.size() > 0) {
 			for(int i = 0; i < shops.size(); i++) {
 				if(shops.get(i).getShopCode().trim().equals(shopCode.trim())) {
@@ -5151,7 +2516,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		
 		return unit;
 	}
-		
+	
 	private List<PromotionImportNewVO> validatePromotionImport (List<PromotionImportNewVO> importNewVOs, List<PromotionImportNewVO> promotionImportNewErrorVOs) {
 		List<PromotionImportNewVO> promotionImportNewVOs = new ArrayList<>();
 		for(PromotionImportNewVO importNewVO : importNewVOs) {
@@ -5191,7 +2556,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		}
 		return promotionImportNewVOs;
 	}
-		
+	
 	private List<PromotionImportNewVO> sortPromotionImport (List<PromotionImportNewVO> importNewVOs) {	
 		// danh index cho muc theo index của list groupLevel và sort mức
 		for(PromotionImportNewVO importNewVO : importNewVOs) {
@@ -5255,7 +2620,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		}
 		return importNewVOs;
 	}
-		
+	
 	private void createSubConditionForKM (List<PromotionImportGroupLevelDetailNewVO> detailNewVOs, int promotionType, Map<Integer, List<String>> subGroupLevelDetailQuantity, Map<BigDecimal, List<String>> subGroupLevelDetailAmount, List<String> productCodes, List<String> productCodesForLevel) {
 		for(int j = 0; j < detailNewVOs.size(); j++) {
 			PromotionImportGroupLevelDetailNewVO detailNewVOEx1 = detailNewVOs.get(j);
@@ -5320,7 +2685,8 @@ public class PromotionCatalogAction extends AbstractAction {
 				if(groupNewVO.getGroupLevelBuys() != null && groupNewVO.getGroupLevelBuys().size() > 0) {
 					for(int i = 0; i < groupNewVO.getGroupLevelBuys().size(); i++) {
 						PromotionImportGroupLevelNewVO groupLevelBuy = groupNewVO.getGroupLevelBuys().get(i);
-						if(!groupLevelBuy.hasParent()) {
+						if(!groupLevelBuy.hasParent())
+						{
 							groupLevelBuy.setMessageError(R.getResource("ctkm.import.new.no.parent", groupLevelBuy.getGroupLevelCode()));
 							return R.getResource("ctkm.import.new.no.parent", groupLevelBuy.getGroupLevelCode());
 						}
@@ -5357,7 +2723,9 @@ public class PromotionCatalogAction extends AbstractAction {
 											return R.getResource("ctkm.import.new.km.product.quantity.null", groupLevelKM.getGroupLevelCode(), importNewVO.getPromotionCode());
 										}
 									}
-								} else {
+								}
+								else
+								{
 									groupLevelKM.setMessageError(R.getResource("catalog.promotion.program.km.not.exists", groupLevelKM.getGroupLevelCode()));
 									return R.getResource("catalog.promotion.program.km.not.exists", groupLevelKM.getGroupLevelCode());
 								}
@@ -5381,7 +2749,7 @@ public class PromotionCatalogAction extends AbstractAction {
 				if(i != 0) {
 					for(String code : productCodes) {
 						if(rootProductCodes.indexOf(code) == -1) {
-							return "ctkm.import.new.condition.product.is.not.homogeneous";
+							return "ctkm.import.new.condition.level.product.diff";
 						}
 					}
 					
@@ -5850,7 +3218,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		if(!StringUtil.isNullOrEmpty(messageError)) {
 			return messageError;
 		}
-		return "";
+		return null;
 	}
 	
 	private String validateZV08New (PromotionImportNewVO importNewVO){
@@ -5875,7 +3243,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		if(!StringUtil.isNullOrEmpty(messageError)) {
 			return messageError;
 		}
-		return "";
+		return null;
 	}
 	
 	private String validateZV09New (PromotionImportNewVO importNewVO){
@@ -5895,7 +3263,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		if(!StringUtil.isNullOrEmpty(messageError)) {
 			return messageError;
 		}
-		return "";
+		return null;
 	}
 	
 	private String validateZV10New (PromotionImportNewVO importNewVO){
@@ -5920,7 +3288,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		if(!StringUtil.isNullOrEmpty(messageError)) {
 			return messageError;
 		}
-		return "";
+		return null;
 	}
 	
 	private String validateZV11New (PromotionImportNewVO importNewVO){
@@ -5945,7 +3313,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		if(!StringUtil.isNullOrEmpty(messageError)) {
 			return messageError;
 		}
-		return "";
+		return null;
 	}
 	
 	private String validateZV12New (PromotionImportNewVO importNewVO){
@@ -5965,7 +3333,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		if(!StringUtil.isNullOrEmpty(messageError)) {
 			return messageError;
 		}
-		return "";
+		return null;
 	}
 	
 	private String validateZV19New (PromotionImportNewVO importNewVO){
@@ -5990,7 +3358,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		if(!StringUtil.isNullOrEmpty(messageError)) {
 			return messageError;
 		}
-		return "";
+		return null;
 	}
 	
 	private String validateZV20New (PromotionImportNewVO importNewVO){
@@ -6015,7 +3383,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		if(!StringUtil.isNullOrEmpty(messageError)) {
 			return messageError;
 		}
-		return "";
+		return null;
 	}
 	
 	private String validateZV21New (PromotionImportNewVO importNewVO){
@@ -6035,7 +3403,7 @@ public class PromotionCatalogAction extends AbstractAction {
 		if(!StringUtil.isNullOrEmpty(messageError)) {
 			return messageError;
 		}
-		return "";
+		return null;
 	}
 	
 
@@ -10411,6 +7779,15 @@ public class PromotionCatalogAction extends AbstractAction {
 			}
 	/*		private Boolean isDiscount;
 			private Boolean isReward*/
+			GameFilter filter = new GameFilter();
+			filter.setStatus(ActiveType.RUNNING);
+			filter.setFlagExpire(false);
+			ObjectVO<GameVO> listGameVO = gameMgr.getListGameVOByFilterForProgram(filter);
+			if (listGameVO != null) {
+				setListGame(listGameVO.getLstObject());
+			} else {
+				setListGame(new ArrayList<GameVO>());
+			}
 			lstTypeCode = apParamMgr.getListApParam(ApParamType.PROMOTION, ActiveType.RUNNING);
 			if (promotionId == null || promotionId == 0) {
 				return SUCCESS;
@@ -10432,6 +7809,23 @@ public class PromotionCatalogAction extends AbstractAction {
 					promotionProgram.setFlagStatusExpire(ActiveType.HET_HAN.getValue());
 				}
 			}
+			if(promotionProgram.getGameFlag()!=null)
+			{
+				if(!(ActiveType.WAITING.equals(promotionProgram.getStatus())&&ActiveType.RUNNING.equals(promotionProgram.getStatus())))
+				{
+					GamePromotionProgram game = gameMgr.findGamePromotionByPromotionId(promotionProgram.getId());
+					filter = new GameFilter();
+					filter.setId(game.getId());
+					filter.setStatus(ActiveType.ALL);
+					listGameVO = gameMgr.getListGameVOByFilterForProgram(filter);
+					if (listGameVO != null) {
+						setListGame(listGameVO.getLstObject());
+					} else {
+						setListGame(new ArrayList<GameVO>());
+					}
+				}
+			}
+			
 			ApParam apListDist = apParamMgr.getApParamByCode("LIST_VISIBLE_DISCOUNT", ApParamType.ACTIVE_TYPE);
 			String[] listDist;
 			if(apListDist != null) {
@@ -10479,6 +7873,10 @@ public class PromotionCatalogAction extends AbstractAction {
 				isReward = false;
 			}
 			
+			if(promotionProgram.getGameFlag()!=null&&promotionProgram.getGameFlag()==1)
+			{
+				setGameFlag(true);
+			}
 			
 			
 			ObjectVO<Product> listProductVO = productMgr.getListProduct(null, ActiveType.RUNNING);
@@ -10488,6 +7886,13 @@ public class PromotionCatalogAction extends AbstractAction {
 				listProduct = new ArrayList<Product>();
 			}
 
+			if(promotionProgram.getGameFlag()!=null&&promotionProgram.getGameFlag()==1)
+			{
+				GamePromotionProgram gamePromotionProgram = gameMgr.findGamePromotionByPromotionId(promotionProgram.getId());
+				if(gamePromotionProgram!=null) {
+					this.setSelectedGameId(gamePromotionProgram.getGame().getId());
+				}
+			}
 			id = promotionId;
 			if (promotionProgramMgr.checkExistPromotionShopMapByListShop(getStrListShopId(), promotionId)) {
 				isViewCustomerTab = 1;
@@ -11972,8 +9377,8 @@ public class PromotionCatalogAction extends AbstractAction {
 			fil.setStaffRootId(currentUser.getStaffRoot().getStaffId());
 			fil.setRoleId(currentUser.getRoleToken().getRoleId());
 			fil.setShopRootId(currentUser.getShopRoot().getShopId());
-			fil.setShopCode(code);
-			fil.setShopName(name);
+//			fil.setShopCode(code);
+//			fil.setShopName(name);
 			fil.setQuantityMax(quantity);
 			List<Long> splitShop_Id = new ArrayList<Long>();
 			List<PromotionShopVO> lstTemp = promotionProgramMgr.searchPromotionShopMapJoin(fil);
@@ -16599,6 +14004,28 @@ public class PromotionCatalogAction extends AbstractAction {
 	public void setExcelType(Integer excelType) {
 		this.excelType = excelType;
 	}
-	
-	
+	public List<GameVO> getListGame() {
+		return listGame;
+	}
+	public void setListGame(List<GameVO> listGame) {
+		this.listGame = listGame;
+	}
+	public Boolean getGameFlag() {
+		return gameFlag;
+	}
+	public void setGameFlag(Boolean gameFlag) {
+		this.gameFlag = gameFlag;
+	}
+	public Long getGameId() {
+		return gameId;
+	}
+	public void setGameId(Long gameId) {
+		this.gameId = gameId;
+	}
+	public Long getSelectedGameId() {
+		return selectedGameId;
+	}
+	public void setSelectedGameId(Long selectedGameId) {
+		this.selectedGameId = selectedGameId;
+	}
 }
